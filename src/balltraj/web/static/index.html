@@ -9,6 +9,7 @@
   <link rel="preload" href="fonts/barlow-semicondensed-500.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/libre-caslon-display-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/libre-caslon-text-700.woff2" as="font" type="font/woff2" crossorigin>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/"}}</script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -34,9 +35,13 @@
       </div>
     </form>
 
-    <section class="sheet" aria-label="Relevé de la trajectoire">
+    <section class="sheet" id="sheet" data-view="2d" aria-label="Relevé de la trajectoire">
       <p id="verdict" class="verdict" data-state="neutral" role="status" aria-live="polite"></p>
       <div class="toggles">
+        <div class="views" role="group" aria-label="Type de vue">
+          <button type="button" id="v-2d" aria-pressed="true">Relevé</button>
+          <button type="button" id="v-3d" aria-pressed="false">Vue 3D</button>
+        </div>
         <label><input type="checkbox" id="t-vacuum" checked> Parabole sans air</label>
         <label><input type="checkbox" id="t-nospin" checked> Même tir sans rotation</label>
         <label><input type="checkbox" id="t-forces" checked> Forces à l'apogée</label>
@@ -48,6 +53,38 @@
       <figure class="plot plot-top">
         <figcaption>Vue de dessus</figcaption>
         <canvas id="cv-top" role="img" aria-label="Trajectoire en vue de dessus"></canvas>
+      </figure>
+      <figure class="plot plot-3d">
+        <figcaption>Vue 3D</figcaption>
+        <canvas id="cv-3d" role="img" aria-label="Vue 3D de la trajectoire, rejouée en temps réel"></canvas>
+        <dl class="hud" aria-hidden="true">
+          <div><dt>Temps</dt><dd id="h-time">0,00 s</dd></div>
+          <div><dt>Distance</dt><dd id="h-dist">0,0 m</dd></div>
+          <div><dt>Hauteur</dt><dd id="h-height">0,00 m</dd></div>
+          <div><dt>Vitesse</dt><dd><span id="h-speed">0 m/s</span> <small id="h-kmh">0 km/h</small></dd></div>
+        </dl>
+        <p id="msg-3d" class="msg-3d" role="status"></p>
+        <div class="deck">
+          <button type="button" id="b-play" aria-pressed="true">Pause</button>
+          <input type="range" id="r-time" min="0" max="1000" step="1" value="0" aria-label="Position dans le tir">
+          <output id="o-time" for="r-time">0,00 / 0,00 s</output>
+          <label class="deck-speed">Vitesse
+            <select id="s-speed" aria-label="Vitesse de lecture">
+              <option value="0.1">0,1×</option>
+              <option value="0.25">0,25×</option>
+              <option value="0.5">0,5×</option>
+              <option value="1" selected>1× temps réel</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+          <label class="deck-loop"><input type="checkbox" id="t-loop" checked> Boucle</label>
+          <div class="cams" role="group" aria-label="Caméra">
+            <button type="button" id="c-suivi" aria-pressed="false">Suivi</button>
+            <button type="button" id="c-tribune" aria-pressed="true">Tribune</button>
+            <button type="button" id="c-aerien" aria-pressed="false">Aérien</button>
+            <button type="button" id="c-arrivee" aria-pressed="false">Arrivée</button>
+          </div>
+        </div>
       </figure>
     </section>
 
@@ -63,6 +100,15 @@
         <canvas id="cv-chart" role="img" aria-label="Vitesse, coefficient de traînée et de portance en fonction du temps"></canvas>
       </figure>
       <p id="air" class="air"></p>
+      <section class="export" aria-labelledby="export-title">
+        <h2 id="export-title">Exporter vers Fusion</h2>
+        <p>Script prêt à lancer dans Autodesk Fusion : la balle à chaque instant, les courbes de profil et de dessus, les points de contact.</p>
+        <div class="export-actions">
+          <button type="button" id="btn-fusion" class="primary">Script Fusion (.zip)</button>
+          <button type="button" id="btn-csv">Données (.csv)</button>
+        </div>
+        <p id="export-status" class="export-status" role="status" aria-live="polite"></p>
+      </section>
     </aside>
   </main>
 

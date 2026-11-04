@@ -8,7 +8,7 @@ const el = (tag, props = {}, ...kids) => {
   return node;
 };
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-const GROUPS = [["tir", "Tir"], ["spin", "Rotation"], ["air", "Air"]];
+const GROUPS = [["tir", "Tir"], ["spin", "Rotation"], ["air", "Air"], ["sol", "Sol"]];
 
 const state = {
   meta: null, scenario: null, ball: null, values: {}, data: null,
@@ -51,8 +51,20 @@ function buildControls() {
       range.addEventListener("input", () => setValue(c, range.value, range));
       fs.append(field);
     }
+    if (group === "sol") fs.append(contactFields());
     host.append(fs);
   }
+}
+
+function contactFields() {
+  const sel = el("select", { id: "in-surface" });
+  for (const s of state.meta.surfaces) sel.append(el("option", { value: s.key, textContent: s.name }));
+  sel.addEventListener("change", () => { state.values.surface = sel.value; state.status = ""; refresh(true); });
+  const roll = el("input", { type: "checkbox", id: "in-roll" });
+  roll.addEventListener("change", () => { state.values.roll = roll.checked; state.status = ""; refresh(true); });
+  return el("div", { className: "field" },
+    el("label", { htmlFor: "in-surface" }, "Surface"), sel,
+    el("label", { className: "check" }, roll, "Roulé jusqu'à l'arrêt"));
 }
 
 function buildTabs() {
@@ -89,7 +101,11 @@ function paint(c) {
   r.setAttribute("aria-valuetext", `${v} ${c.unit}`);
   r.style.setProperty("--pct", `${((v - c.min) / (c.max - c.min)) * 100}%`);
 }
-const paintAll = () => state.meta.controls.forEach(paint);
+function paintAll() {
+  state.meta.controls.forEach(paint);
+  $("in-surface").value = state.values.surface;
+  $("in-roll").checked = Boolean(state.values.roll);
+}
 
 function setValue(c, raw, source, final = false) {
   let v = parseFloat(String(raw).replace(",", "."));
@@ -162,8 +178,10 @@ async function refresh(animate) {
 }
 
 function apply(data) {
+  const restart = animateNext;
   state.data = data;
   renderText(data);
+  if (view === "3d") push3d(restart);
   if (animateNext && !reduceMotion.matches) { animateNext = false; animate(); }
   else { animateNext = false; state.progress = 1; draw(); }
 }
@@ -189,8 +207,10 @@ function draw() {
     vacuum: $("t-vacuum").checked, nospin: $("t-nospin").checked, forces: $("t-forces").checked,
     progress: state.progress,
   };
-  drawSide($("cv-side"), d, state.scenario.view, opts);
-  drawTop($("cv-top"), d, state.scenario.view, opts);
+  if (view === "2d") {
+    drawSide($("cv-side"), d, state.scenario.view, opts);
+    drawTop($("cv-top"), d, state.scenario.view, opts);
+  }
   drawChart($("cv-chart"), d);
 }
 
@@ -210,8 +230,12 @@ function renderText(d) {
   verdict.dataset.state = d.verdict.success ? "success" : d.verdict.has_target ? "miss" : "neutral";
 
   const main = $("rows-main"), cmp = $("rows-compare"), aero = $("rows-aero");
+  const bounced = d.impacts.length > 1 || s.roll_distance > 0;
   main.replaceChildren(
-    row("Distance", nf(s.distance, 1), "m"),
+    row(bounced ? "Distance totale" : "Distance", nf(s.distance, 1), "m"),
+    ...(bounced ? [row("Carry (1er contact)", nf(s.carry_distance, 1), "m")] : []),
+    ...(s.roll_distance > 0 ? [row("Roulé", nf(s.roll_distance, 1), "m")] : []),
+    ...(bounced ? [row("Contacts avec le sol", String(d.impacts.length))] : []),
     row("Écart latéral", signed(s.lateral, 2), "m"),
     row("Apogée", nf(s.apex, 2), "m"),
     row("Temps de vol", nf(s.flight_time, 2), "s"),
@@ -277,6 +301,98 @@ function wireButtons() {
   for (const id of ["t-vacuum", "t-nospin", "t-forces"]) $(id).addEventListener("change", draw);
 }
 
+// ---------------------------------------------------------------- vue 3D
+let view = "2d", scene3d = null, replayTimer = 0, scrubbing = false;
+const CAMERAS = ["suivi", "tribune", "aerien", "arrivee"];
+
+async function ensure3D() {
+  if (scene3d) return scene3d;
+  try {
+    const { createScene3D } = await import("./scene3d.js");
+    scene3d = createScene3D(
+      $("cv-3d"),
+      { time: $("h-time"), dist: $("h-dist"), height: $("h-height"), speed: $("h-speed"), kmh: $("h-kmh") },
+      {
+        onFrame: ({ t, T, playing }) => {
+          const r = $("r-time");
+          r.max = String(Math.round(T * 1000));
+          if (!scrubbing) r.value = String(Math.round(t * 1000));
+          r.style.setProperty("--pct", `${T ? (t / T) * 100 : 0}%`);
+          $("o-time").textContent = `${nf(t, 2)} / ${nf(T, 2)} s`;
+          const b = $("b-play");
+          b.textContent = playing ? "Pause" : "Lecture";
+          b.setAttribute("aria-pressed", String(playing));
+        },
+        onMode: (m) => CAMERAS.forEach((n) => $(`c-${n}`).setAttribute("aria-pressed", String(n === m))),
+      },
+    );
+    return scene3d;
+  } catch (err) {
+    $("msg-3d").textContent = `La vue 3D demande WebGL, indisponible ici (${err.message}).`;
+    return null;
+  }
+}
+
+async function setView(next) {
+  if (next === "3d") await ensure3D();
+  view = next;
+  $("sheet").dataset.view = view;
+  $("v-2d").setAttribute("aria-pressed", String(view === "2d"));
+  $("v-3d").setAttribute("aria-pressed", String(view === "3d"));
+  try { localStorage.setItem("trajectoire-vue", view); } catch { /* stockage indisponible : sans conséquence */ }
+  if (view === "3d") {
+    if (scene3d) { scene3d.setActive(true); if (state.data) scene3d.setData(state.data, { restart: true }); }
+  } else {
+    scene3d?.setActive(false);
+    draw();
+  }
+}
+
+function push3d(restart) {
+  if (!scene3d || !state.data) return;
+  scene3d.setData(state.data, { restart });
+  if (!restart) {                                           // pendant un glissement : on rejoue une fois le réglage posé
+    clearTimeout(replayTimer);
+    replayTimer = setTimeout(() => scene3d.replay(), 650);
+  }
+}
+
+function wire3d() {
+  $("v-2d").addEventListener("click", () => setView("2d"));
+  $("v-3d").addEventListener("click", () => setView("3d"));
+  $("b-play").addEventListener("click", () => scene3d?.toggle());
+  const r = $("r-time");
+  r.addEventListener("input", () => { scrubbing = true; scene3d?.seek(Number(r.value) / 1000); });
+  r.addEventListener("change", () => { scrubbing = false; });
+  $("s-speed").addEventListener("change", (e) => scene3d?.setSpeed(Number(e.target.value)));
+  $("t-loop").addEventListener("change", (e) => scene3d?.setLoop(e.target.checked));
+  for (const n of CAMERAS) $(`c-${n}`).addEventListener("click", () => scene3d?.setCamera(n));
+}
+
+// ---------------------------------------------------------------- export vers Fusion
+async function download(format) {
+  const status = $("export-status");
+  status.textContent = "Préparation du fichier…";
+  try {
+    const res = await fetch("/api/export", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload(), format }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || `Erreur ${res.status}`);
+    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "")?.[1]
+      ?? (format === "csv" ? "trajectoire.csv" : "trajectoire.zip");
+    const link = el("a", { href: URL.createObjectURL(await res.blob()), download: name });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+    status.textContent = format === "csv"
+      ? `${name} enregistré.`
+      : `${name} enregistré. Dans Fusion : dézippe, puis Utilitaires > Scripts et compléments > « + » > choisis le dossier > Exécuter.`;
+  } catch (err) {
+    status.textContent = `Export impossible : ${err.message}`;
+  }
+}
+
 // ---------------------------------------------------------------- démarrage
 async function start() {
   try {
@@ -288,9 +404,15 @@ async function start() {
   buildTabs();
   buildControls();
   wireButtons();
+  wire3d();
+  $("btn-fusion").addEventListener("click", () => download("fusion"));
+  $("btn-csv").addEventListener("click", () => download("csv"));
   const ro = new ResizeObserver(() => draw());
   for (const id of ["cv-side", "cv-top", "cv-chart"]) ro.observe($(id));
   document.fonts.ready.then(draw);
   selectScenario("Coup franc");
+  let saved = "2d";
+  try { saved = localStorage.getItem("trajectoire-vue") || "2d"; } catch { /* sans conséquence */ }
+  if (saved === "3d") setView("3d");
 }
 start();

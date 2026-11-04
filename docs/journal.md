@@ -5,6 +5,14 @@ Le plus récent en haut.
 
 ---
 
+## 2026-11-04 — Rebonds, vue 3D immersive, export Fusion
+- **Rebonds** (`impact.py`) : sphère rigide, restitution + frottement de Coulomb + transfert de rotation, par balle et par sol. Tennis calé sur la norme ITF (rebond 1,41 m pour 2,54 m). Golf : drive de 70 m/s → carry 222 m, roulé 70,7 m, total 317 m sur gazon.
+- Tests de mon propre modèle : deux tests faux au départ (cas qui n'accrochait pas, cas où le frottement saturait). C'était les tests, pas la physique.
+- **Vue 3D** (three.js r160 embarqué) : lecture en temps réel, balle qui tourne avec la vraie rotation, tube violet, balles fantômes, anneaux de contact, 4 caméras.
+- Pièges 3D rencontrés : directive `#include` d'un shader écrite sur la même ligne qu'une instruction (ciel noir) ; texture de la balle libérée puis réutilisée (balle invisible) ; instants de contact arrondis par l'API donnant des points NaN dans le tracé.
+- **Export Fusion** : dossier zippé (script + manifest), Z haut ou Y haut, paramétrique ou direct. Testé contre une fausse API, pas dans Fusion.
+- 96 tests, couverture 95 %.
+
 ## 2026-11-04 — Interface web « Centre Court »
 - Nouvelle interface web locale (`trajectoire-web`) : serveur stdlib sur 127.0.0.1, API JSON, page HTML/CSS/JS sans build.
 - Direction visuelle épinglée par l'utilisateur : esprit Wimbledon (vert profond, violet, blanc, or, serif). Remplace une première version « papier millimétré » écartée avant livraison.

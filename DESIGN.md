@@ -255,3 +255,17 @@ Pastille fixe centrée en bas : fond vert profond, texte or 600, filet or 1 px.
 - **Don't** revenir au tableau de bord gris à un accent, ni au papier millimétré neutre.
 - **Don't** mettre la serif sur des étiquettes de champ ou des boutons.
 - **Don't** laisser un dessin de relevé sans échelle chiffrée.
+
+
+## Vue 3D (extension)
+
+La vue 3D reste dans le monde « Centre Court » : aucun nouveau matériau, seulement les jetons existants plus un seul, `--sky`.
+
+- **Jeton ajouté** : `--sky` (`oklch(88% 0.035 230)`), le ciel. L'horizon se fond dans `--turf-a` ; le brouillard prend la même couleur.
+- **Pelouse** : bandes de tonte alternées dérivées de `--green` éclairci vers `--turf-b` (deux teintes, 2,5 m, 5 m ou 10 m selon la longueur du terrain). Lignes de craie en `--paper`.
+- **Tracé** : tube en `--traj` (règle « Purple Is The Shot »). Balles fantômes en `--ball`, translucides. Anneaux de contact en `--gold`.
+- **Ballon** : sphère texturée avec les jetons (`--ball` pour le tennis, `--paper`, `--ink`, `--gold`, `--traj` pour les autres). Sa taille grossit avec la distance de la caméra (de la taille réelle ou 12 cm de rayon, jusqu'à 1,2 % de la longueur du tir) : lisible de loin, jamais énorme de près.
+- **Tableau d'affichage et barre de lecture** : bandes pleines `--rail` avec chiffres en or (« Gold Needs Green »), placées au-dessus et en dessous de l'image, jamais en surimpression : rien ne cache la trajectoire. Chiffres du tableau en Libre Caslon, chiffres tabulaires.
+- **Commutateurs** (Relevé / Vue 3D, caméras) : groupe à liseré intérieur de 3 px, état pressé plein (`--rail` et or, ou or et `--rail` sur la barre).
+- **Caméras** : Suivi, Tribune (à droite du tireur, le tir va de gauche à droite), Aérien, Arrivée. Mouvement signature : transition d'une caméra à l'autre en 0,9 s, exponentielle, instantanée sous `prefers-reduced-motion`.
+- Le fichier `.impeccable/design.json` n'a pas été régénéré pour cette extension : ce paragraphe fait foi pour la 3D.
