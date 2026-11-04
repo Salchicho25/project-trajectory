@@ -11,6 +11,13 @@ from matplotlib.patches import Circle, Rectangle
 from .balls import BALLS
 from .simulate import Launch, Trajectory
 
+
+def _f(v: float, digits: int, sign: bool = False) -> str:
+    """Nombre à la française : virgule décimale, vrai signe moins."""
+    text = f"{v:+.{digits}f}" if sign else f"{v:.{digits}f}"
+    return text.replace(".", ",").replace("-", "−")
+
+
 GROUND_COLOR = "#7a9a5a"
 STRUCT_COLOR = "#444444"
 
@@ -63,10 +70,10 @@ def _verdict_free_kick(tr: Trajectory) -> str:
         return "Trop court : rebondit avant la ligne"
     _, yg, zg = tr.at(tg)[:3]
     if abs(yg) < FK_GOAL_HALF_W - r and zg < FK_GOAL_H - r:
-        return f"BUT !  (y = {yg:+.2f} m, z = {zg:.2f} m)"
+        return f"BUT ! (y = {_f(yg, 2, sign=True)} m, z = {_f(zg, 2)} m)"
     if zg >= FK_GOAL_H - r and abs(yg) < FK_GOAL_HALF_W + r:
-        return f"Au-dessus  (z = {zg:.2f} m)"
-    return f"À côté  (y = {yg:+.2f} m)"
+        return f"Au-dessus (z = {_f(zg, 2)} m)"
+    return f"À côté (y = {_f(yg, 2, sign=True)} m)"
 
 
 # --- Lancer franc -------------------------------------------------------------------
@@ -90,10 +97,10 @@ def _verdict_free_throw(tr: Trajectory) -> str:
     off = math.hypot(x - FT_HOOP_X, y)
     entry = math.degrees(math.atan2(-tr.at(t)[5], math.hypot(*tr.at(t)[3:5])))
     if off < FT_RIM_R - tr.ball.radius:
-        return f"PANIER !  (écart {off * 100:.0f} cm, entrée à {entry:.0f}°)"
+        return f"PANIER ! (écart {off * 100:.0f} cm, entrée à {entry:.0f}°)"
     if off < FT_RIM_R + tr.ball.radius:
-        return f"Touche le cercle  (écart {off * 100:.0f} cm)"
-    return f"Raté  ({'long' if x > FT_HOOP_X else 'court'} de {abs(x - FT_HOOP_X) * 100:.0f} cm)"
+        return f"Touche le cercle (écart {off * 100:.0f} cm)"
+    return f"Raté ({'long' if x > FT_HOOP_X else 'court'} de {abs(x - FT_HOOP_X) * 100:.0f} cm)"
 
 
 # --- Drive de golf ------------------------------------------------------------------
@@ -105,7 +112,7 @@ def _draw_golf(side, top):
 
 
 def _verdict_golf(tr: Trajectory) -> str:
-    return f"Carry : {tr.carry:.0f} m ({tr.carry / 0.9144:.0f} yd), écart {tr.lateral:+.1f} m"
+    return f"Carry : {tr.carry:.0f} m ({tr.carry / 0.9144:.0f} yd), écart {_f(tr.lateral, 1, sign=True)} m"
 
 
 # --- Home run -------------------------------------------------------------------------
@@ -128,8 +135,8 @@ def _draw_home_run(side, top):
 def _verdict_home_run(tr: Trajectory) -> str:
     t = tr.time_at_x(HR_FENCE_X)
     if t is not None and tr.at(t)[2] > HR_FENCE_H + tr.ball.radius:
-        return f"HOME RUN !  ({tr.carry:.0f} m, soit {tr.carry / 0.3048:.0f} ft)"
-    return f"Dans le champ  ({tr.carry:.0f} m, soit {tr.carry / 0.3048:.0f} ft)"
+        return f"HOME RUN ! ({tr.carry:.0f} m, soit {tr.carry / 0.3048:.0f} ft)"
+    return f"Dans le champ ({tr.carry:.0f} m, soit {tr.carry / 0.3048:.0f} ft)"
 
 
 def _nothing(*_):

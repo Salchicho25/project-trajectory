@@ -70,7 +70,8 @@ Les tâches détaillées vivent dans les issues GitHub, une par tâche, rattach�
 - [ ] Gardien de but simple (temps de réaction, plongeon) dans la situation de coup franc
 
 ## Phase 4 — Produit et valorisation (mois 5–6+)
-- [ ] Application web 3D (three.js ou Streamlit), lien partageable
+- [x] Interface web locale « Centre Court » (`trajectoire-web`), API JSON testée (novembre 2026)
+- [ ] Vue 3D (three.js) et lien partageable en ligne (demande de porter la physique côté serveur hébergé)
 - [ ] Site de documentation (mkdocs) avec la théorie et les résultats
 - [ ] Rapport technique type article : modèle, validation, comparaison aux mesures
 - [ ] Vidéo de démo (tir filmé et simulation superposés)

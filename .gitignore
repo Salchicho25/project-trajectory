@@ -30,3 +30,8 @@ data/raw/
 
 # Sorties générées par l'étude (les figures de docs/figures restent versionnées)
 outputs/
+
+# Captures et brouillons de travail du skill de design (le contrat .impeccable/surfaces reste versionné)
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/build/

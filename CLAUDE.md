@@ -12,7 +12,8 @@ pip install -e ".[dev]"     # installation (une fois)
 pytest                      # tests rapides (~5 s) ; tous : pytest -m ""
 pytest -m "" --cov          # tous les tests + couverture (ce que fait la CI)
 ruff check . && ruff format . && mypy   # qualité, doit être propre avant chaque commit
-trajectoire                 # simulateur interactif ; --scenario "Coup franc" --save x.png
+trajectoire-web             # interface web locale (http://127.0.0.1:8765) ; --port N, --no-browser
+trajectoire                 # ancienne interface matplotlib ; --scenario "Coup franc" --save x.png
 trajectoire-etude           # régénère docs/figures/
 ```
 Sous Windows, préfixer les scripts Python qui affichent des accents par `PYTHONIOENCODING=utf-8`.
@@ -27,8 +28,13 @@ src/balltraj/
   optimize.py     optimal_elevation, elevations_through, min_speed_through
   scenarios.py    situations de jeu : géométrie, tir par défaut, verdict
   app.py          interface matplotlib (curseurs, boutons) — commande `trajectoire`
+  web/api.py      API JSON en fonctions pures (meta, run_simulation, run_optimal, run_target)
+  web/geometry.py décor des situations en données pour le navigateur (cotes lues dans scenarios.py)
+  web/server.py   serveur stdlib sur 127.0.0.1 + fichiers statiques — commande `trajectoire-web`
+  web/static/     index.html, style.css, app.js (logique), plot.js (dessin canvas), fonts/
   etude.py        graphiques d'étude — commande `trajectoire-etude`
-tests/            test_physics.py (validation physique), test_scenarios.py (situations + UI)
+tests/            test_physics.py (validation physique), test_scenarios.py (situations + UI matplotlib),
+                  test_web.py (API + vrai serveur HTTP)
 docs/figures/     figures versionnées utilisées par le README
 data/             (à venir, phase 2) raw/ hors git, processed/ versionné si léger
 ```
@@ -41,6 +47,8 @@ data/             (à venir, phase 2) raw/ hors git, processed/ versionné si l�
 - Le second membre de l'EDO (`_make_rhs`) est écrit en flottants purs pour la vitesse : ne pas le vectoriser avec numpy.
 - Toute nouvelle physique arrive avec un test qui la valide contre une solution analytique,
   une conservation, une symétrie ou une donnée publiée (citer la source dans le test).
+- Interface web : la physique ne se réécrit JAMAIS en JavaScript, l'API renvoie tout (forces comprises via `Trajectory.accelerations`).
+- Direction visuelle « Centre Court » épinglée par l'utilisateur (Wimbledon : vert, violet, blanc, or, serif Libre Caslon + Barlow Semi Condensed). Contrat de design dans `.impeccable/surfaces/`, produit dans `PRODUCT.md`. Ni logo ni nom de marque.
 - Une fonctionnalité = une branche `feat/...` → PR → CI verte → merge sur `main`.
 - Après un résultat marquant, ajouter une entrée datée dans `docs/journal.md` et cocher `ROADMAP.md`.
 

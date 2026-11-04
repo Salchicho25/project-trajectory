@@ -1,0 +1,221 @@
+/* Centre Court : blanc des tenues, vert profond, violet, filets or, pelouse rayée.
+   Angles droits partout, filets de 1 px, aucune ombre. Inspiration seule : aucun logo ni nom de marque. */
+
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 400; font-display: swap;
+  src: url("fonts/barlow-semicondensed-400.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; font-display: swap;
+  src: url("fonts/barlow-semicondensed-500.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap;
+  src: url("fonts/barlow-semicondensed-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 700; font-display: swap;
+  src: url("fonts/barlow-semicondensed-700.woff2") format("woff2"); }
+@font-face { font-family: "Libre Caslon Text"; font-weight: 400; font-display: swap;
+  src: url("fonts/libre-caslon-text-400.woff2") format("woff2"); }
+@font-face { font-family: "Libre Caslon Text"; font-weight: 700; font-display: swap;
+  src: url("fonts/libre-caslon-text-700.woff2") format("woff2"); }
+@font-face { font-family: "Libre Caslon Display"; font-weight: 400; font-display: swap;
+  src: url("fonts/libre-caslon-display-400.woff2") format("woff2"); }
+
+:root {
+  color-scheme: light;
+  --paper:   oklch(99%   0.004 140);   /* blanc des tenues */
+  --paper-2: oklch(96.5% 0.012 145);
+  --turf-a:  oklch(97.4% 0.022 145);   /* bandes de pelouse tondue */
+  --turf-b:  oklch(94.4% 0.040 145);
+  --grid-1:  oklch(92%   0.030 148);
+  --grid-5:  oklch(86%   0.050 148);
+  --grid-10: oklch(76%   0.070 150);
+  --ink:     oklch(22%   0.045 160);
+  --ink-2:   oklch(40%   0.050 160);
+  --rail:    oklch(32%   0.085 158);   /* vert profond */
+  --rail-ink: oklch(98%  0.010 140);
+  --rail-dim: oklch(84%  0.050 150);
+  --gold:    oklch(80%   0.115 85);    /* filets et titre sur le vert */
+  --traj:    oklch(38%   0.150 305);   /* violet : tracé, sélection, action */
+  --traj-2:  oklch(56%   0.165 305);
+  --green:   oklch(46%   0.120 150);
+  --ball:    oklch(90%   0.200 112);   /* jaune optique */
+
+  --font: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --serif: "Libre Caslon Text", "Libre Caslon Display", Georgia, serif;
+  --display: "Libre Caslon Display", "Libre Caslon Text", Georgia, serif;
+  --text: 0.9375rem;
+  --small: 0.8125rem;
+  --rail-h: 3.75rem;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0; min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr);
+  font: 400 var(--text)/1.35 var(--font); color: var(--ink); background: var(--paper);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  scrollbar-color: var(--ink-2) var(--paper-2);
+  accent-color: var(--traj);
+  caret-color: var(--traj);
+}
+::selection { background: var(--traj); color: var(--paper); }
+:focus-visible { outline: 2px solid var(--traj); outline-offset: 2px; }
+button, input, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+/* ---------- Bandeau ---------- */
+.rail {
+  display: flex; align-items: stretch; gap: 1.75rem; min-height: var(--rail-h);
+  padding: 0 1.25rem; background: var(--rail); color: var(--rail-ink);
+  border-bottom: 1px solid var(--gold);
+}
+.rail :focus-visible { outline-color: var(--gold); }
+.mark {
+  margin: 0; align-self: center; font: 400 1.9rem/1 var(--display);
+  letter-spacing: 0.01em; color: var(--gold);
+}
+.tabs {
+  display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none;
+  mask-image: linear-gradient(to right, var(--ink) calc(100% - 1.75rem), transparent);   /* indique qu'on peut défiler */
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  appearance: none; border: 0; background: transparent; color: var(--rail-dim); cursor: pointer;
+  padding: 0.75rem 1.15rem 0.9rem; font-weight: 500; letter-spacing: 0.03em; white-space: nowrap; border-radius: 0;
+}
+.tab:hover { color: var(--rail-ink); background: oklch(100% 0 0 / 0.07); }
+.tab[aria-selected="true"] { background: var(--paper); color: var(--rail); font-weight: 700; }
+.ball-pick { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: var(--rail-dim); }
+.ball-pick select {
+  height: 2.25rem; padding: 0 2rem 0 0.7rem; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--gold); border-radius: 0; font-weight: 600; cursor: pointer;
+}
+
+/* ---------- Disposition : trois colonnes séparées par un filet ---------- */
+.layout {
+  display: grid; grid-template-columns: 19.5rem minmax(0, 1fr) 21rem;
+  gap: 1px; background: var(--grid-10); min-height: 0; height: calc(100dvh - var(--rail-h));
+}
+.layout > * { background: var(--paper); min-height: 0; min-width: 0; }
+.controls, .results { overflow-y: auto; padding: 1.1rem 1.15rem 1.5rem; }
+
+/* ---------- Réglages ---------- */
+fieldset { margin: 0 0 1.35rem; padding: 0; border: 0; min-width: 0; }
+legend {
+  width: 100%; padding: 0 0 0.35rem; margin-bottom: 0.55rem; border-bottom: 1px solid var(--rail);
+  font: 700 1.05rem/1.2 var(--serif); color: var(--rail);
+}
+.field { display: grid; grid-template-columns: 1fr auto; column-gap: 0.5rem; align-items: baseline; margin-bottom: 0.7rem; }
+.field label { font-weight: 500; }
+.field .unit { color: var(--ink-2); margin-left: 0.25rem; font-weight: 400; }
+.field .hint { grid-column: 1 / -1; color: var(--ink-2); font-size: var(--small); margin-top: -0.05rem; }
+.field input[type="number"] {
+  width: 5.2rem; height: 2rem; padding: 0 0.45rem; text-align: right; font-weight: 600;
+  background: var(--paper); border: 1px solid var(--ink-2); border-radius: 0; appearance: textfield;
+}
+.field input[type="number"]::-webkit-inner-spin-button { display: none; }
+.field input[type="number"]:hover { background: var(--paper-2); }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0.3rem 0 0; }
+
+/* Curseur : trait fin, poignée rectangulaire violette */
+input[type="range"] { --pct: 0%; appearance: none; height: 1.25rem; background: transparent; cursor: pointer; }
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px; background: linear-gradient(to right, var(--traj) var(--pct), var(--grid-10) var(--pct));
+}
+input[type="range"]::-moz-range-track { height: 3px; background: var(--grid-10); }
+input[type="range"]::-moz-range-progress { height: 3px; background: var(--traj); }
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 0.65rem; height: 1.15rem; margin-top: -0.5rem;
+  background: var(--traj); border: 2px solid var(--paper); border-radius: 0; outline: 1px solid var(--traj);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 0.65rem; height: 1.15rem; background: var(--traj); border: 2px solid var(--paper); border-radius: 0; outline: 1px solid var(--traj);
+}
+
+/* ---------- Boutons ---------- */
+/* les actions restent visibles en bas des réglages, quelle que soit la hauteur de l'écran */
+.dock {
+  position: sticky; bottom: -1.5rem; margin: 0 -1.15rem -1.5rem; padding: 0.7rem 1.15rem 1.5rem;
+  background: var(--paper); border-top: 1px solid var(--grid-10);
+}
+.actions { display: grid; gap: 0.5rem; }
+button {
+  height: 2.5rem; padding: 0 1rem; border: 1px solid var(--rail); border-radius: 0; background: var(--paper);
+  color: var(--rail); font-weight: 600; letter-spacing: 0.02em; cursor: pointer; text-align: center;
+  transition: background-color 120ms var(--ease), color 120ms var(--ease), transform 120ms var(--ease);
+}
+button:hover:not(:disabled) { background: var(--paper-2); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button.primary { background: var(--traj); border-color: var(--traj); color: var(--paper); }
+button.primary:hover:not(:disabled) { background: oklch(31% 0.15 305); }
+button.quiet { border-color: transparent; color: var(--ink-2); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+button:disabled { color: var(--ink-2); border: 1px dashed var(--ink-2); background: transparent; cursor: not-allowed; }
+.status { min-height: 1.4em; margin: 0.5rem 0 0; color: var(--ink-2); }
+
+/* ---------- Relevé ---------- */
+.sheet { display: grid; grid-template-rows: auto auto minmax(0, 3fr) minmax(0, 1.25fr); padding: 0; }
+.verdict {
+  margin: 0; padding: 0.7rem 1.15rem; font: 700 1.55rem/1.15 var(--serif); min-height: 3.3rem;
+  border-bottom: 1px solid var(--rail); color: var(--rail);
+}
+.verdict[data-state="success"] { background: var(--rail); color: var(--gold); border-bottom-color: var(--gold); }
+.verdict[data-state="miss"] { box-shadow: inset 0 0 0 2px var(--rail); }
+.toggles { display: flex; flex-wrap: wrap; gap: 0.25rem 1.4rem; padding: 0.55rem 1.15rem; border-bottom: 1px solid var(--grid-10); }
+.toggles label { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; font-weight: 500; }
+.toggles input { width: 1.05rem; height: 1.05rem; margin: 0; }
+
+.plot { margin: 0; position: relative; min-height: 0; border-bottom: 1px solid var(--grid-10); }
+.plot:last-child { border-bottom: 0; }
+.plot figcaption {
+  position: absolute; z-index: 1; top: 0.45rem; left: 3.1rem; padding: 0 0.4rem;
+  background: var(--paper); color: var(--rail); font: 700 var(--small)/1.4 var(--font);
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.plot canvas { display: block; width: 100%; height: 100%; }
+
+/* ---------- Résultats ---------- */
+table.data { width: 100%; border-collapse: collapse; }
+.data caption { text-align: left; padding: 0 0 0.35rem; border-bottom: 1px solid var(--rail);
+  font: 700 1.05rem/1.2 var(--serif); color: var(--rail); }
+.data tbody { border-bottom: 1px solid var(--grid-10); }
+.data th, .data td { padding: 0.3rem 0; text-align: left; font-weight: 400; vertical-align: baseline; }
+.data th { color: var(--ink-2); padding-right: 0.5rem; }
+.data td { text-align: right; font-weight: 600; white-space: nowrap; }
+.data td small { color: var(--ink-2); font-weight: 400; margin-left: 0.2rem; }
+.data tr.group th { padding-top: 0.75rem; color: var(--rail); font-size: var(--small); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.data td.delta { font-weight: 500; color: var(--ink-2); }
+.plot-chart { margin-top: 1.1rem; height: 11.5rem; border: 1px solid var(--rail); }
+.plot-chart figcaption { left: 0.5rem; top: 0.35rem; text-transform: none; letter-spacing: 0; font-size: var(--small); font-weight: 600; }
+.air { margin: 0.9rem 0 0; color: var(--ink-2); font-size: var(--small); }
+
+.error {
+  position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%); margin: 0; padding: 0.7rem 1.1rem;
+  background: var(--rail); color: var(--gold); font-weight: 600; border: 1px solid var(--gold);
+}
+
+/* ---------- Étroit : une colonne, relevé d'abord ---------- */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 17rem minmax(0, 1fr); height: auto; }
+  .results { grid-column: 1 / -1; }
+  .sheet { grid-template-rows: auto auto 24rem 13rem; align-content: start; }
+  .tab { padding-left: 0.8rem; padding-right: 0.8rem; }
+}
+@media (max-width: 760px) {
+  .rail { flex-wrap: wrap; gap: 0 1rem; padding: 0 0.75rem; }
+  .mark { padding: 0.6rem 0; }
+  .ball-pick { padding: 0.5rem 0; }
+  .tabs { order: 3; flex: 1 0 100%; }
+  .layout { display: flex; flex-direction: column; background: var(--paper); height: auto; }
+  .layout > * { border-bottom: 1px solid var(--grid-10); flex: none; }
+  /* le verdict reste collé en haut pendant qu'on règle : on voit l'effet de chaque curseur */
+  .sheet { display: contents; }
+  .verdict { order: 1; position: sticky; top: 0; z-index: 3; background: var(--paper); }
+  .verdict[data-state="success"] { background: var(--rail); }
+  .toggles { order: 2; }
+  .plot-side { order: 3; height: 19rem; }
+  .plot-top { order: 4; height: 11rem; }
+  .controls { order: 5; overflow: visible; }
+  .results { order: 6; overflow: visible; }
+  .plot figcaption { left: 2.9rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}

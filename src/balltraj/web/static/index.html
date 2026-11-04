@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trajectoire</title>
+  <meta name="description" content="Simulateur de trajectoire de balle : traînée, effet Magnus, rotation, vent et altitude.">
+  <link rel="icon" href="data:,">
+  <link rel="preload" href="fonts/barlow-semicondensed-500.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/libre-caslon-display-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/libre-caslon-text-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="rail">
+    <h1 class="mark">Trajectoire</h1>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Situations"></div>
+    <label class="ball-pick">
+      <span>Balle</span>
+      <select id="ball"></select>
+    </label>
+  </header>
+
+  <main id="panel" class="layout" role="tabpanel">
+    <form id="controls" class="controls" aria-label="Réglages du tir" autocomplete="off">
+      <div id="groups"></div>
+      <div class="dock">
+        <div class="actions">
+          <button type="button" id="btn-optimal">Portée maximale</button>
+          <button type="button" id="btn-target" class="primary">Viser la cible</button>
+          <button type="button" id="btn-reset" class="quiet">Réglages d'origine</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <section class="sheet" aria-label="Relevé de la trajectoire">
+      <p id="verdict" class="verdict" data-state="neutral" role="status" aria-live="polite"></p>
+      <div class="toggles">
+        <label><input type="checkbox" id="t-vacuum" checked> Parabole sans air</label>
+        <label><input type="checkbox" id="t-nospin" checked> Même tir sans rotation</label>
+        <label><input type="checkbox" id="t-forces" checked> Forces à l'apogée</label>
+      </div>
+      <figure class="plot plot-side">
+        <figcaption>Vue de côté</figcaption>
+        <canvas id="cv-side" role="img" aria-label="Trajectoire en vue de côté"></canvas>
+      </figure>
+      <figure class="plot plot-top">
+        <figcaption>Vue de dessus</figcaption>
+        <canvas id="cv-top" role="img" aria-label="Trajectoire en vue de dessus"></canvas>
+      </figure>
+    </section>
+
+    <aside class="results" aria-label="Résultats">
+      <table class="data">
+        <caption>Résultats du tir</caption>
+        <tbody id="rows-main"></tbody>
+        <tbody id="rows-compare"></tbody>
+        <tbody id="rows-aero"></tbody>
+      </table>
+      <figure class="plot plot-chart">
+        <figcaption>Vitesse, Cd et CL pendant le vol</figcaption>
+        <canvas id="cv-chart" role="img" aria-label="Vitesse, coefficient de traînée et de portance en fonction du temps"></canvas>
+      </figure>
+      <p id="air" class="air"></p>
+    </aside>
+  </main>
+
+  <p id="error" class="error" role="alert" hidden></p>
+  <noscript><p class="error">Cette interface a besoin de JavaScript.</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

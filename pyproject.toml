@@ -26,9 +26,13 @@ dev = [
 [project.scripts]
 trajectoire = "balltraj.app:main"           # simulateur interactif
 trajectoire-etude = "balltraj.etude:main"   # génère les graphiques d'étude
+trajectoire-web = "balltraj.web.server:main" # interface web locale
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"balltraj.web" = ["static/*", "static/fonts/*"]
 
 # --- Tests -----------------------------------------------------------------
 [tool.pytest.ini_options]
