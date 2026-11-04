@@ -12,13 +12,24 @@ from typing import Any
 
 import numpy as np
 
-from .. import BALLS, Environment, Launch, Trajectory, elevations_through, optimal_elevation, simulate
+from .. import (
+    BALLS,
+    SURFACES,
+    Environment,
+    Launch,
+    Trajectory,
+    elevations_through,
+    optimal_elevation,
+    simulate,
+)
 from ..scenarios import SCENARIOS
 from ..simulate import vacuum_trajectory
+from .export import Download, csv_download, fusion_zip
 from .geometry import geometry
 
 SUCCESS_WORDS = ("BUT", "PANIER", "HOME RUN")
 N_SAMPLES = 240
+N_SAMPLES_BOUNCING = 420
 MAX_STROBE_MARKS = 45
 STROBE_STEPS = (0.05, 0.1, 0.2, 0.5, 1.0)
 G = 9.80665
@@ -51,14 +62,26 @@ CONTROLS = (
     Control("wind_y", "Vent vers la gauche", "m/s", -20, 20, 0.5, "air"),
     Control("altitude", "Altitude", "m", 0, 4000, 10, "air"),
     Control("temperature", "Température", "°C", -10, 40, 1, "air"),
+    Control("bounces", "Rebonds", "", 0, 6, 1, "sol", "0 = arrêt au premier contact"),
 )
+_NUMERIC_KEYS = tuple(c.key for c in CONTROLS)
 _BOUNDS = {c.key: (c.vmin, c.vmax) for c in CONTROLS}
 _AIR_DEFAULTS = {"wind_x": 0.0, "wind_y": 0.0, "altitude": 0.0, "temperature": 15.0}
 
+# Sol par défaut de chaque situation : (rebonds, roulé, surface)
+_CONTACT_DEFAULTS: dict[str, tuple[int, bool, str]] = {
+    "Libre": (3, True, "gazon"),
+    "Coup franc": (0, False, "gazon"),
+    "Lancer franc": (0, False, "dur"),
+    "Drive golf": (2, True, "gazon"),
+    "Home run": (0, False, "gazon"),
+}
 
-def _scenario_values(name: str) -> dict[str, float]:
+
+def _scenario_values(name: str) -> dict[str, Any]:
     sc = SCENARIOS[name]
     L = sc.launch
+    bounces, roll, surface = _CONTACT_DEFAULTS.get(name, (0, False, "dur"))
     return {
         "speed": L.speed,
         "elevation": L.elevation,
@@ -67,11 +90,14 @@ def _scenario_values(name: str) -> dict[str, float]:
         "spin_rpm": L.spin_rpm,
         "spin_tilt": L.spin_tilt,
         **_AIR_DEFAULTS,
+        "bounces": float(bounces),
+        "roll": roll,
+        "surface": surface,
     }
 
 
 def meta() -> dict[str, Any]:
-    """Catalogue : balles, situations (réglages par défaut, cible), curseurs."""
+    """Catalogue : balles, sols, situations (réglages par défaut, cible), curseurs."""
     return {
         "controls": [
             {
@@ -89,6 +115,7 @@ def meta() -> dict[str, Any]:
         "balls": [
             {"key": b.key, "name": b.name, "mass": b.mass, "diameter": b.diameter} for b in BALLS.values()
         ],
+        "surfaces": [{"key": s.key, "name": s.name} for s in SURFACES.values()],
         "scenarios": [
             {
                 "name": name,
@@ -116,7 +143,7 @@ def _number(payload: dict, key: str, default: float) -> float:
     return min(max(value, lo), hi)
 
 
-def _parse(payload: dict) -> tuple[str, Any, Launch, Environment]:
+def _parse(payload: dict) -> tuple[str, Any, Launch, Environment, dict[str, Any]]:
     name = payload.get("scenario", "Libre")
     if name not in SCENARIOS:
         raise ApiError(f"Situation inconnue : {name}")
@@ -124,12 +151,20 @@ def _parse(payload: dict) -> tuple[str, Any, Launch, Environment]:
     if ball_key not in BALLS:
         raise ApiError(f"Balle inconnue : {ball_key}")
     base = _scenario_values(name)
-    v = {key: _number(payload, key, base[key]) for key in base}
+    v = {key: _number(payload, key, base[key]) for key in _NUMERIC_KEYS}
+    surface = payload.get("surface", base["surface"])
+    if surface not in SURFACES:
+        raise ApiError(f"Sol inconnu : {surface}")
     launch = Launch(v["speed"], v["elevation"], v["azimuth"], v["spin_rpm"], v["spin_tilt"], v["height"])
     env = Environment(
         altitude=v["altitude"], temperature_c=v["temperature"], wind=(v["wind_x"], v["wind_y"], 0.0)
     )
-    return name, BALLS[ball_key], launch, env
+    contact = {
+        "bounces": round(v["bounces"]),
+        "surface": surface,
+        "roll": bool(payload.get("roll", base["roll"])),
+    }
+    return name, BALLS[ball_key], launch, env, contact
 
 
 def _r(a: Any, digits: int = 4) -> list:
@@ -160,9 +195,10 @@ def _path(x, y, z) -> dict[str, list]:
 
 def run_simulation(payload: dict) -> dict[str, Any]:
     """Simule un tir et renvoie tout ce que l'écran affiche."""
-    name, ball, launch, env = _parse(payload)
+    name, ball, launch, env, contact = _parse(payload)
     sc = SCENARIOS[name]
-    tr = simulate(ball, launch, env, rtol=1e-7, n_samples=N_SAMPLES)
+    n = N_SAMPLES_BOUNCING if contact["bounces"] or contact["roll"] else N_SAMPLES
+    tr = simulate(ball, launch, env, rtol=1e-7, n_samples=n, **contact)
     aero = tr.aero()
     acc = tr.accelerations()
     dt, strobe = _strobe(tr)
@@ -194,20 +230,36 @@ def run_simulation(payload: dict) -> dict[str, Any]:
             "x": _r(tr.x),
             "y": _r(tr.y),
             "z": _r(tr.z),
+            "speed": _r(tr.speed, 3),
             "v_rel": _r(aero["v_rel"], 3),
             "cd": _r(aero["cd"], 4),
             "cl": _r(aero["cl"], 4),
             "re": _r(aero["re"], 0),
             "spin_param": _r(aero["spin_param"], 4),
+            "omega": {"x": _r(tr.omega[0], 2), "y": _r(tr.omega[1], 2), "z": _r(tr.omega[2], 2)},
             "drag": {"x": _r(acc["drag"][0], 3), "z": _r(acc["drag"][2], 3)},
             "magnus": {"x": _r(acc["magnus"][0], 3), "z": _r(acc["magnus"][2], 3)},
         },
         "strobe": {"dt": dt, "marks": strobe},
+        "impacts": [
+            {
+                "t": round(i.t, 3),
+                "x": round(i.x, 3),
+                "y": round(i.y, 3),
+                "speed_in": round(i.speed_in, 2),
+                "speed_out": round(i.speed_out, 2),
+                "sliding": i.sliding,
+            }
+            for i in tr.impacts
+        ],
+        "contact": contact,
         "apex": {"t": round(tr.apex_time, 3), "x": round(float(ax[0]), 3), "z": round(float(ax[2]), 3)},
         "vacuum": _path(vac[0], vac[1], vac[2]) if vac.shape[1] > 1 else None,
         "nospin": nospin,
         "summary": {
             "distance": round(tr.distance, 3),
+            "carry_distance": round(tr.carry_distance, 3),
+            "roll_distance": round(tr.roll_distance, 3),
             "lateral": round(tr.lateral, 3),
             "apex": round(tr.apex, 3),
             "flight_time": round(tr.flight_time, 3),
@@ -236,15 +288,15 @@ def run_simulation(payload: dict) -> dict[str, Any]:
 
 
 def run_optimal(payload: dict) -> dict[str, Any]:
-    """Angle d'élévation qui maximise la distance, les autres réglages fixés."""
-    _, ball, launch, env = _parse(payload)
+    """Angle d'élévation qui maximise la distance du premier contact, les autres réglages fixés."""
+    _, ball, launch, env, _ = _parse(payload)
     el, tr = optimal_elevation(ball, launch, env)
     return {"elevation": round(el, 1), "distance": round(tr.distance, 2)}
 
 
 def run_target(payload: dict) -> dict[str, Any]:
     """Angles qui font passer la balle par la cible de la situation."""
-    name, ball, launch, env = _parse(payload)
+    name, ball, launch, env, _ = _parse(payload)
     target = SCENARIOS[name].target
     if target is None:
         raise ApiError("Pas de cible dans cette situation")
@@ -252,3 +304,12 @@ def run_target(payload: dict) -> dict[str, Any]:
     current = launch.elevation
     best = min(roots, key=lambda r: abs(r - current)) if roots else None
     return {"elevations": [round(r, 1) for r in roots], "best": None if best is None else round(best, 1)}
+
+
+def run_export(payload: dict) -> Download:
+    """Exporte le tir courant : « fusion » (script Autodesk Fusion zippé) ou « csv »."""
+    fmt = payload.get("format", "fusion")
+    if fmt not in ("fusion", "csv"):
+        raise ApiError(f"Format inconnu : {fmt}")
+    result = run_simulation(payload)
+    return fusion_zip(result) if fmt == "fusion" else csv_download(result)

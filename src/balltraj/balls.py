@@ -8,7 +8,7 @@ principal levier pour calibrer le modèle sur tes propres mesures.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .aero import DragModel, LiftModel
 
@@ -23,6 +23,9 @@ class Ball:
     lift: LiftModel
     spin_decay_time: float  # s, constante de temps : ω(t) = ω0·exp(-t/τ)
     color: str
+    restitution: float = 0.75  # rebond normal sur sol dur : e = √(h_rebond / h_chute)
+    inertia: float = 2 / 3  # I = α·m·R² (2/5 plein, 2/3 creux)
+    roll_resistance: float = 0.06  # décélération de roulement = coefficient × g
 
     @property
     def diameter(self) -> float:
@@ -37,7 +40,7 @@ class Ball:
         return f"{self.name} — {self.mass * 1000:.0f} g, Ø {self.diameter * 100:.1f} cm"
 
 
-BALLS: dict[str, Ball] = {
+_BASE: dict[str, Ball] = {
     b.key: b
     for b in [
         Ball(
@@ -101,4 +104,20 @@ BALLS: dict[str, Ball] = {
             "#8e44ad",
         ),
     ]
+}
+
+
+# Contact avec le sol : (restitution sur sol dur, α = I/(m R²), résistance au roulement)
+# Tennis : norme ITF, balle lâchée de 2,54 m, rebond de 1,35 à 1,47 m, soit e ≈ 0,745.
+_CONTACT = {
+    "football": (0.75, 0.67, 0.07),
+    "basketball": (0.80, 0.66, 0.03),
+    "golf": (0.60, 0.40, 0.08),
+    "tennis": (0.745, 0.60, 0.05),
+    "baseball": (0.50, 0.40, 0.12),
+    "volleyball": (0.75, 0.66, 0.04),
+}
+BALLS: dict[str, Ball] = {
+    k: replace(b, restitution=_CONTACT[k][0], inertia=_CONTACT[k][1], roll_resistance=_CONTACT[k][2])
+    for k, b in _BASE.items()
 }

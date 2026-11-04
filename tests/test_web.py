@@ -1,6 +1,7 @@
 """Tests de l'API web et du serveur local."""
 
 import json
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -21,12 +22,12 @@ def test_meta_lists_everything_the_ui_needs():
     m = api.meta()
     assert {c["key"] for c in m["controls"]} == {
         "speed", "elevation", "azimuth", "height", "spin_rpm", "spin_tilt",
-        "wind_x", "wind_y", "altitude", "temperature",
+        "wind_x", "wind_y", "altitude", "temperature", "bounces",
     }  # fmt: skip
     assert [s["name"] for s in m["scenarios"]] == list(SCENARIOS)
     assert {b["key"] for b in m["balls"]} == set(BALLS)
     for sc in m["scenarios"]:
-        assert set(sc["values"]) == {c["key"] for c in m["controls"]}
+        assert set(sc["values"]) == {c["key"] for c in m["controls"]} | {"roll", "surface"}
     json.dumps(m)  # sérialisable
 
 
@@ -34,7 +35,9 @@ def test_meta_lists_everything_the_ui_needs():
 def test_simulation_matches_the_python_verdict(name):
     sc = SCENARIOS[name]
     out = api.run_simulation({"scenario": name})
-    tr = simulate(BALLS[sc.ball], sc.launch, rtol=1e-7, n_samples=api.N_SAMPLES)
+    contact = api._parse({"scenario": name})[4]
+    n = api.N_SAMPLES_BOUNCING if contact["bounces"] or contact["roll"] else api.N_SAMPLES
+    tr = simulate(BALLS[sc.ball], sc.launch, rtol=1e-7, n_samples=n, **contact)
     assert out["verdict"]["text"] == sc.verdict(tr)
     assert out["summary"]["distance"] == pytest.approx(tr.distance, abs=1e-3)
     n = len(out["samples"]["t"])
@@ -177,3 +180,37 @@ def test_api_errors_are_json_400(base_url):
 def test_oversized_body_is_refused(base_url):
     status, _ = _post(base_url + "/api/simulate", None, raw=b"x" * (70 * 1024))
     assert status == 413
+
+
+def test_every_file_the_page_depends_on_is_served(base_url):
+    """HTML, CSS, modules JS (import map comprise) et polices : aucun 404 caché."""
+    html = _get(base_url + "/")[2].decode()
+    css = _get(base_url + "/style.css")[2].decode()
+    found = re.search(r'<script type="importmap">(.*?)</script>', html, re.S)
+    assert found, "pas d'import map dans la page"
+    imports = json.loads(found.group(1))["imports"]
+    refs = set(re.findall(r'(?:src|href)="([^"#:]+)"', html)) - {"data,"}
+    refs |= {v.removeprefix("./") for v in imports.values() if not v.endswith("/")}
+    refs |= set(re.findall(r'url\("([^"]+)"\)', css))
+    for js in ("app.js", "plot.js", "scene3d.js"):
+        text = _get(base_url + "/" + js)[2].decode()
+        for spec in re.findall(r'(?:from|import\()\s*"([^"]+)"', text):
+            if spec.startswith("."):
+                refs.add(spec.removeprefix("./"))
+            else:  # spécificateur nu : doit être résolu par l'import map
+                prefix = next(
+                    (k for k in imports if spec == k or (k.endswith("/") and spec.startswith(k))), None
+                )
+                assert prefix, f"{js} importe « {spec} » sans entrée dans l'import map"
+                target = (
+                    imports[prefix] + spec.removeprefix(prefix) if prefix.endswith("/") else imports[prefix]
+                )
+                refs.add(target.removeprefix("./"))
+    assert {"vendor/three.module.min.js", "vendor/OrbitControls.js", "scene3d.js"} <= refs
+    missing = [r for r in sorted(refs) if _get(f"{base_url}/{r}")[0] != 200]
+    assert not missing, missing
+
+
+def test_three_js_license_ships_with_the_vendored_copy(base_url):
+    status, _, body = _get(base_url + "/vendor/LICENSE-three.txt")
+    assert (status == 200 and b"MIT" in body[:200].upper()) or b"Permission is hereby granted" in body

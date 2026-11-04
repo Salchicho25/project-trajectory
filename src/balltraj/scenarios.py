@@ -112,7 +112,11 @@ def _draw_golf(side, top):
 
 
 def _verdict_golf(tr: Trajectory) -> str:
-    return f"Carry : {tr.carry:.0f} m ({tr.carry / 0.9144:.0f} yd), écart {_f(tr.lateral, 1, sign=True)} m"
+    carry = tr.carry_distance
+    text = f"Carry : {carry:.0f} m ({carry / 0.9144:.0f} yd), écart {_f(tr.lateral, 1, sign=True)} m"
+    if len(tr.impacts) > 1 or tr.roll_distance > 0:
+        text += f", total {tr.distance:.0f} m"
+    return text
 
 
 # --- Home run -------------------------------------------------------------------------

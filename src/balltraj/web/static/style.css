@@ -35,6 +35,7 @@
   --traj-2:  oklch(56%   0.165 305);
   --green:   oklch(46%   0.120 150);
   --ball:    oklch(90%   0.200 112);   /* jaune optique */
+  --sky:     oklch(88%   0.035 230);   /* ciel de la vue 3D */
 
   --font: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   --serif: "Libre Caslon Text", "Libre Caslon Display", Georgia, serif;
@@ -218,4 +219,79 @@ table.data { width: 100%; border-collapse: collapse; }
 
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
+}
+
+/* ---------- Réglages du sol ---------- */
+.field select {
+  height: 2rem; padding: 0 0.5rem; background: var(--paper); border: 1px solid var(--ink-2); border-radius: 0;
+  font-weight: 600; cursor: pointer;
+}
+.field .check { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; cursor: pointer; font-weight: 500; }
+.field .check input { width: 1.05rem; height: 1.05rem; margin: 0; }
+
+/* ---------- Bascule Relevé / Vue 3D ---------- */
+.views { display: inline-flex; gap: 3px; padding: 3px; margin-right: 0.6rem; border: 1px solid var(--rail); }
+.views button { height: 1.75rem; border: 0; border-radius: 0; padding: 0 1rem; font-weight: 600; background: var(--paper); color: var(--rail); }
+.views button[aria-pressed="true"] { background: var(--rail); color: var(--gold); }
+.plot-3d { display: none; min-height: 22rem; }
+.plot-3d canvas, .plot-3d .msg-3d { grid-column: 1; grid-row: 2; }
+.sheet[data-view="3d"] { grid-template-rows: auto auto minmax(0, 1fr); }
+.sheet[data-view="3d"] .plot-side, .sheet[data-view="3d"] .plot-top { display: none; }
+.sheet[data-view="3d"] .plot-3d { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-bottom: 0; }
+.sheet[data-view="3d"] .toggles label { display: none; }
+.plot-3d figcaption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; }
+.plot-3d canvas { touch-action: none; cursor: grab; }
+.plot-3d canvas:active { cursor: grabbing; }
+
+/* Tableau d'affichage en direct */
+.hud {
+  grid-row: 1; margin: 0; padding: 0.5rem 1.1rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 2.2rem;
+  background: var(--rail); color: var(--gold); border-bottom: 1px solid var(--gold);
+}
+.hud div { display: flex; align-items: baseline; gap: 0.55rem; }
+.hud dt { color: var(--rail-dim); font-size: var(--small); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+.hud dd { margin: 0; font: 700 1.3rem/1.15 var(--serif); font-variant-numeric: tabular-nums; }
+.hud dd small { font: 500 var(--small)/1 var(--font); color: var(--rail-dim); margin-left: 0.2rem; }
+.msg-3d { z-index: 2; align-self: center; text-align: center; margin: 0 1rem; color: var(--rail); font: 700 1.1rem var(--serif); pointer-events: none; }
+
+/* Commandes de lecture */
+.deck {
+  grid-row: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem;
+  padding: 0.55rem 0.9rem; background: var(--rail); color: var(--rail-ink); border-top: 1px solid var(--gold);
+}
+.deck :focus-visible { outline-color: var(--gold); }
+.deck button {
+  height: 2rem; padding: 0 0.9rem; background: transparent; color: var(--gold); border: 1px solid var(--gold); font-weight: 600;
+}
+.deck button:hover:not(:disabled) { background: oklch(100% 0 0 / 0.1); }
+.deck #b-play { min-width: 5.6rem; }
+.deck input[type="range"] { flex: 1 1 10rem; min-width: 7rem; width: auto; }
+.deck input[type="range"]::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--gold) var(--pct), oklch(100% 0 0 / 0.28) var(--pct)); }
+.deck input[type="range"]::-moz-range-track { background: oklch(100% 0 0 / 0.28); }
+.deck input[type="range"]::-moz-range-progress { background: var(--gold); }
+.deck input[type="range"]::-webkit-slider-thumb { background: var(--gold); border-color: var(--rail); outline-color: var(--gold); }
+.deck input[type="range"]::-moz-range-thumb { background: var(--gold); border-color: var(--rail); outline-color: var(--gold); }
+.deck output { min-width: 7.5rem; font-weight: 600; color: var(--gold); text-align: right; }
+.deck-speed, .deck-loop { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--rail-dim); font-weight: 500; }
+.deck-loop { cursor: pointer; }
+.deck-speed select { height: 2rem; padding: 0 0.4rem; background: var(--paper); color: var(--ink); border: 1px solid var(--gold); border-radius: 0; font-weight: 600; }
+.deck-loop input { width: 1.05rem; height: 1.05rem; margin: 0; accent-color: var(--gold); }
+.cams { display: inline-flex; gap: 3px; padding: 3px; margin-left: auto; border: 1px solid var(--gold); }
+.cams button { border: 0; border-radius: 0; height: 1.75rem; }
+.cams button[aria-pressed="true"] { background: var(--gold); color: var(--rail); }
+
+/* ---------- Export vers Fusion ---------- */
+.export { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--rail); }
+.export h2 { margin: 0 0 0.4rem; font: 700 1.05rem/1.2 var(--serif); color: var(--rail); }
+.export p { margin: 0 0 0.7rem; color: var(--ink-2); font-size: var(--small); }
+.export-actions { display: grid; gap: 0.5rem; }
+.export-status { margin: 0.6rem 0 0; min-height: 1.4em; }
+
+@media (max-width: 1100px) {
+  .sheet[data-view="3d"] { grid-template-rows: auto auto 34rem; }
+}
+@media (max-width: 760px) {
+  .plot-3d { order: 3; height: 34rem; }
+  .cams { margin-left: 0; }
+  .deck output { text-align: left; }
 }

@@ -19,9 +19,10 @@ Les tâches détaillées vivent dans les issues GitHub, une par tâche, rattach�
 
 ## Phase 1 — Physique plus fidèle (mois 1–2)
 **J1.1 Rebonds**
-- [ ] Modèle d'impact : restitution normale, frottement, transfert de spin (modèle de Cross)
-- [ ] Trajectoire multi-rebonds, distance totale (carry + roulé) au golf
-- [ ] Test : hauteur de rebond d'une balle de tennis lâchée de 2,54 m (norme ITF : 1,35–1,47 m)
+- [x] Modèle d'impact : restitution normale, frottement de Coulomb, transfert de spin (sphère rigide)
+- [x] Trajectoire multi-rebonds, distance totale (carry + roulé) au golf, surfaces dur / gazon / terre
+- [x] Test : hauteur de rebond d'une balle de tennis lâchée de 2,54 m (norme ITF : 1,35–1,47 m)
+- [ ] Rebond avec déformation (coefficient de restitution qui dépend de la vitesse d'impact)
 
 **J1.2 Coefficients issus de mesures**
 - [ ] Tables Cd(Re, S) et CL(S, Re) tirées de la littérature (soufflerie), interpolées
@@ -71,7 +72,10 @@ Les tâches détaillées vivent dans les issues GitHub, une par tâche, rattach�
 
 ## Phase 4 — Produit et valorisation (mois 5–6+)
 - [x] Interface web locale « Centre Court » (`trajectoire-web`), API JSON testée (novembre 2026)
-- [ ] Vue 3D (three.js) et lien partageable en ligne (demande de porter la physique côté serveur hébergé)
+- [x] Vue 3D immersive en temps réel (three.js) : 4 caméras, rotation réelle de la balle, rebonds
+- [x] Export vers Autodesk Fusion (script + CSV)
+- [ ] Tester le script dans Fusion et ajouter un vrai complément (add-in) avec interface
+- [ ] Lien partageable en ligne (demande de porter la physique côté serveur hébergé)
 - [ ] Site de documentation (mkdocs) avec la théorie et les résultats
 - [ ] Rapport technique type article : modèle, validation, comparaison aux mesures
 - [ ] Vidéo de démo (tir filmé et simulation superposés)

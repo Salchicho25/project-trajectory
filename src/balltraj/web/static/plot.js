@@ -367,6 +367,14 @@ export function drawSide(canvas, data, view, opts) {
     ctx.beginPath(); ctx.moveTo(ax, ay - 12); ctx.lineTo(ax - 5, ay - 4); ctx.lineTo(ax + 5, ay - 4); ctx.closePath(); ctx.fill();
     if (opts.forces) drawForces(ctx, pal, data, ax, ay, f.area);
 
+    for (const im of data.impacts.slice(0, -1)) {          // contacts intermédiaires : petites croix au sol
+      const [cx, cy] = toPx(im.x, 0);
+      ctx.strokeStyle = pal.traj2; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, cy - 4); ctx.lineTo(cx + 4, cy + 4);
+      ctx.moveTo(cx + 4, cy - 4); ctx.lineTo(cx - 4, cy + 4);
+      ctx.stroke();
+    }
     const n = sm.x.length - 1;
     const [lx, ly] = toPx(sm.x[n], sm.z[n]);
     ctx.strokeStyle = pal.traj; ctx.lineWidth = 2.2;

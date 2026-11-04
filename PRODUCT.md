@@ -34,6 +34,9 @@ Navigateur sur le PC de l'utilisateur, serveur local, aucune connexion requise. 
 - Données renvoyées par la physique : trajectoire 3D échantillonnée, apogée, portée, écart latéral, temps de vol, vitesse et angle à l'impact, Reynolds, paramètre de spin, Cd, CL.
 - Langue de l'interface : français. Unités SI, avec ° et tr/min pour les saisies.
 - Contrainte : la physique n'est jamais réécrite côté navigateur, le JavaScript n'affiche que ce que Python calcule.
+- Rebonds (0 à 6), surfaces (dur, gazon, terre battue), roulé jusqu'à l'arrêt : distance totale, carry et contacts avec le sol.
+- Vue 3D immersive rejouée en temps réel (quatre caméras, rotation réelle de la balle), en plus du relevé 2D.
+- L'utilisateur travaille en simulation et en CAO avec Autodesk Fusion (installé) : la trajectoire s'exporte vers Fusion (script) et en CSV.
 
 ## Brand Commitments
 
