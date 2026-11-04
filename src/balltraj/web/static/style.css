@@ -74,7 +74,6 @@ button, input, select { font: inherit; color: inherit; }
 }
 .tabs {
   display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none;
-  mask-image: linear-gradient(to right, var(--ink) calc(100% - 1.75rem), transparent);   /* indique qu'on peut défiler */
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -304,4 +303,27 @@ table.data { width: 100%; border-collapse: collapse; }
 @media (max-width: 760px) {
   .cams { width: 100%; }
   .cams button { flex: 1 1 0; min-width: 0; padding: 0 0.3rem; }
+}
+
+/* ---------- Onglets : le dégradé n'apparaît que s'il reste des onglets à droite ---------- */
+.tabs.fade-right { mask-image: linear-gradient(to right, var(--ink) calc(100% - 1.75rem), transparent); }
+
+/* ---------- Qualité, ralenti, note d'échelle ---------- */
+.deck-quality { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--rail-dim); font-weight: 500; }
+.deck-quality select { height: 2rem; padding: 0 0.4rem; background: var(--paper); color: var(--ink); border: 1px solid var(--gold); border-radius: 0; font-weight: 600; }
+.deck-note { flex: 1 0 100%; margin: 0; color: var(--rail-dim); font-size: var(--small); order: 99; }
+.slow-tag {
+  grid-column: 1; grid-row: 2; z-index: 2; align-self: start; justify-self: end; margin: 0.6rem; padding: 0.15rem 0.7rem;
+  background: var(--rail); color: var(--gold); border: 1px solid var(--gold); font-weight: 700; letter-spacing: 0.04em;
+}
+button[aria-disabled="true"] { color: var(--ink-2); border-style: dashed; cursor: progress; }
+.deck button[aria-disabled="true"] { color: var(--rail-dim); border-color: var(--rail-dim); }
+.hud { gap: 0.2rem 1.4rem; }
+
+@media (max-width: 760px) {
+  .tabs { flex-wrap: wrap; overflow: visible; }
+  .tab { padding: 0.55rem 0.8rem 0.65rem; }
+  .hud { display: grid; grid-template-columns: repeat(2, auto); justify-content: start; gap: 0.15rem 1.4rem; }
+  .plot-3d { height: 38rem; }
+  .plot-3d canvas { min-height: 15rem; }
 }

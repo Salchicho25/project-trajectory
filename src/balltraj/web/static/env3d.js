@@ -122,50 +122,78 @@ function stand(g, kit, { cx, cy, away, len, rows, seed = 1, gap = 2 }) {
   grp.add(barrier);
 
   const rand = rng(seed);
-  const palette = [kit.paper, kit.gold, kit.traj2, kit.green, kit.turfB, kit.rail.clone().lerp(kit.paper, 0.45), kit.traj];
+  const cream = kit.paper.clone().lerp(kit.gold, 0.14);
+  const palette = [kit.paper, kit.paper, cream, cream, kit.turfB, kit.green.clone().lerp(kit.paper, 0.5), kit.rail.clone().lerp(kit.paper, 0.6)];
+  const accents = [kit.gold, kit.traj2.clone().lerp(kit.paper, 0.4)];            // 1 spectateur sur 12 seulement
   const per = Math.max(1, Math.floor(len / 0.55));
-  const crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.62, 0.3), mat(kit.paper, { roughness: 0.8 }), per * rows);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1);
+  const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.15, 0.28, 3, 8), mat(kit.paper, { roughness: 0.85 }), per * rows);
+  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 10, 8), mat(kit.paper, { roughness: 0.7 }), per * rows);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1);
   let n = 0;
   for (let r = 0; r < rows; r++) {
     for (let i = 0; i < per; i++) {
-      if (rand() < 0.08) { s.set(0, 0, 0); } else { s.set(1, 0.85 + rand() * 0.3, 1); }
-      m4.compose(
-        new THREE.Vector3(gap + r * rowD + rowD * 0.45, rowH * (r + 1) + 0.31 * s.y, -len / 2 + ((i + 0.5 + (rand() - 0.5) * 0.4) * len) / per),
-        q, s,
-      );
-      crowd.setMatrixAt(n, m4);
-      crowd.setColorAt(n, palette[Math.floor(rand() * palette.length)]);
+      sc.setScalar(rand() < 0.08 ? 0 : 0.88 + rand() * 0.28);               // quelques places vides
+      const u = gap + r * rowD + rowD * 0.45, v = -len / 2 + ((i + 0.5 + (rand() - 0.5) * 0.4) * len) / per;
+      const y0 = rowH * (r + 1) + 0.33 * sc.y;
+      m4.compose(new THREE.Vector3(u, y0, v), q, sc);
+      bodies.setMatrixAt(n, m4);
+      bodies.setColorAt(n, rand() < 1 / 12 ? accents[Math.floor(rand() * accents.length)] : palette[Math.floor(rand() * palette.length)]);
+      m4.compose(new THREE.Vector3(u, y0 + 0.36 * sc.y, v), q, sc);
+      heads.setMatrixAt(n, m4);
+      heads.setColorAt(n, cream.clone().lerp(kit.ink, rand() * 0.55));      // carnations variées
       n++;
     }
   }
-  crowd.castShadow = true;
-  grp.add(crowd);
+  bodies.castShadow = true;
+  grp.add(bodies, heads);
   g.add(grp);
 }
 
-// ---------------------------------------------------------------- arbres (cônes instanciés)
+// ---------------------------------------------------------------- arbres arrondis et haies taillées
+// Houppiers arrondis dans la famille des verts du site (jamais mêlés au noir), sur de petits troncs.
 function forest(g, kit, count, sampler, seed = 5, size = [7, 14]) {
   const rand = rng(seed);
-  const trees = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0), mat(kit.green, { roughness: 1 }), count);
+  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 2), mat(kit.green, { roughness: 1 }), count);
+  const trunks = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.12, 0.2, 1, 6).translate(0, 0.5, 0),
+    mat(kit.ink.clone().lerp(kit.gold, 0.4), { roughness: 1 }),
+    count,
+  );
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   for (let i = 0; i < count; i++) {
     const { x, y } = sampler(rand);
-    const h = size[0] + rand() * (size[1] - size[0]), r = h * (0.22 + rand() * 0.1);
-    m4.compose(P(x, y, 0), q, new THREE.Vector3(r, h, r));
-    trees.setMatrixAt(i, m4);
-    trees.setColorAt(i, kit.green.clone().lerp(kit.ink, 0.25 + rand() * 0.4));
+    const h = size[0] + rand() * (size[1] - size[0]), r = h * (0.28 + rand() * 0.12);
+    m4.compose(P(x, y, h * 0.6), q, new THREE.Vector3(r, r * 0.88, r));
+    crowns.setMatrixAt(i, m4);
+    crowns.setColorAt(i, kit.green.clone().lerp(kit.turfB, 0.2 + rand() * 0.5));
+    m4.compose(P(x, y, 0), q, new THREE.Vector3(h * 0.3, h * 0.5, h * 0.3));
+    trunks.setMatrixAt(i, m4);
   }
-  trees.castShadow = true;
-  g.add(trees);
+  crowns.castShadow = trunks.castShadow = true;
+  g.add(crowns, trunks);
+}
+
+// Haie taillée : un mur vert continu entre deux points du sol.
+function hedge(g, kit, x0, y0, x1, y1, h, thick = 2.2) {
+  const len = Math.hypot(x1 - x0, y1 - y0);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(len, h, thick), mat(kit.green.clone().lerp(kit.rail, 0.3), { roughness: 1 }));
+  body.castShadow = body.receiveShadow = true;
+  const holder = new THREE.Group();
+  holder.position.copy(P((x0 + x1) / 2, (y0 + y1) / 2, h / 2));
+  holder.rotation.y = Math.atan2(y1 - y0, x1 - x0);
+  holder.add(body);
+  g.add(holder);
 }
 
 function skyline(g, kit, cx, ext) {
   const r0 = ext * 1.5 + 140;
-  forest(g, kit, 160, (rand) => {
+  forest(g, kit, 120, (rand) => {
     const a = rand() * Math.PI * 2, r = r0 + rand() * (r0 * 0.6);
     return { x: cx + Math.cos(a) * r, y: Math.sin(a) * r };
-  }, 21, [14, 34]);
+  }, 21, [14, 30]);
+  const hx = ext * 0.9 + 80, hy = ext * 0.55 + 70, h = 3 + ext * 0.01;       // haie taillée tout autour du site
+  hedge(g, kit, cx - hx, -hy, cx + hx, -hy, h); hedge(g, kit, cx - hx, hy, cx + hx, hy, h);
+  hedge(g, kit, cx - hx, -hy, cx - hx, hy, h); hedge(g, kit, cx + hx, -hy, cx + hx, hy, h);
 }
 
 // ---------------------------------------------------------------- terrains
@@ -190,7 +218,10 @@ function football(g, kit, geom, p) {
       torso.position.copy(P(wall.x, y, 1.18));
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 18, 14), skin);
       head.position.copy(P(wall.x, y, 1.72));
-      for (const m of [legs, torso, head]) { m.castShadow = true; g.add(m); }
+      const arms = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.34, 4, 8), shirt);   // bras croisés sur le ventre
+      arms.rotation.x = Math.PI / 2;
+      arms.position.copy(P(wall.x - 0.17, y, 1.06));
+      for (const m of [legs, torso, head, arms]) { m.castShadow = true; g.add(m); }
     }
   }
   stand(g, kit, { cx: gx + 10, cy: 0, away: 0, len: 78, rows: 8, seed: 3 });
@@ -277,12 +308,17 @@ const BUILDERS = { "Coup franc": football, "Lancer franc": basketball, "Drive go
 // dimensions du sol selon la situation
 export function groundSpec(name, kit, d) {
   const spec = { light: d.light, dark: d.dark };
-  if (name === "Coup franc") Object.assign(spec, { band: 5.5, length: 150, width: 130, x0: 20 });
+  if (name === "Coup franc") Object.assign(spec, { band: 5.5, length: 150, width: 130, x0: 20, grass: true });
   else if (name === "Home run") Object.assign(spec, { band: 6, length: 330, width: 330, x0: 120 });
   else if (name === "Drive golf") {
     spec.light = d.light.clone().lerp(kit.ink, 0.12); spec.dark = d.dark.clone().lerp(kit.ink, 0.12);   // le rough, plus sombre
-    Object.assign(spec, { band: 10, width: 220, length: d.xmax * 1.8 + 200, x0: d.xmax * 0.55 });
+    Object.assign(spec, { band: 10, width: 220, length: d.xmax * 1.8 + 200, x0: d.xmax * 0.55, grass: true });
+    spec.fair = {                                                                   // le fairway, plus clair, 46 m de large
+      light: d.light.clone().lerp(kit.paper, 0.06), dark: d.dark.clone().lerp(kit.paper, 0.04),
+      origin: d.xmax * 0.55 + 20 - (d.xmax * 1.5 + 80) / 2, half: 23,
+    };
   } else if (name === "Lancer franc") Object.assign(spec, { band: 2, length: 140, width: 110, x0: -10 });
+  else spec.grass = true;
   return spec;
 }
 
@@ -318,6 +354,76 @@ export function clouds(kit, cx) {
     group,
     update(dt) {
       for (const c of items) { c.position.x += dt * 1.6; if (c.position.x > cx + 900) c.position.x -= 1800; }
+    },
+  };
+}
+
+// ---------------------------------------------------------------- herbe réelle autour de la caméra
+// 9 tuiles identiques d'une cellule de 20 m (54 000 brins, un seul appel de rendu). Le motif est périodique :
+// on déplace le groupe par pas d'une cellule pour suivre la caméra, sans que rien ne saute.
+// Les rayures de tonte sont recalculées dans le shader à partir de la position dans le monde, comme la texture du sol.
+export function grassPatch(kit, cfg) {
+  const CELL = 20, PER = 6000, TILES = 3, R = 18;
+  const rand = rng(101);
+  const w = 0.016, h = 0.11;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-w, 0, 0, w, 0, 0, -w * 0.7, h * 0.5, 0.01, w * 0.7, h * 0.5, 0.01, 0, h, 0.03]), 3));
+  geo.setAttribute("normal", new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+  geo.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4]);
+
+  const U = {
+    uTime: { value: 0 }, uWind: { value: 0.5 }, uR: { value: R },
+    uLight: { value: cfg.light }, uDark: { value: cfg.dark }, uBand: { value: cfg.band }, uOrigin: { value: cfg.origin },
+    uFLight: { value: cfg.fair?.light ?? cfg.light }, uFDark: { value: cfg.fair?.dark ?? cfg.dark },
+    uFOrigin: { value: cfg.fair?.origin ?? 0 }, uFHalf: { value: cfg.fair?.half ?? 0 },
+  };
+  const material = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+  material.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform float uTime; uniform float uWind; uniform float uR; varying float vWX; varying float vWZ; varying float vH;")
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+        vec4 wp0 = modelMatrix * instanceMatrix * vec4(transformed, 1.0);
+        float fade = 1.0 - smoothstep(uR * 0.55, uR, distance(wp0.xz, cameraPosition.xz));
+        float hh = position.y;
+        transformed.y *= fade;
+        transformed.x += sin(uTime * 1.7 + instanceMatrix[3].x * 0.6 + instanceMatrix[3].z * 0.5) * 0.02 * hh * 9.0 * uWind;
+        vH = hh;`)
+      .replace("#include <project_vertex>", `#include <project_vertex>
+        vec4 wp1 = modelMatrix * instanceMatrix * vec4(transformed, 1.0);
+        vWX = wp1.x; vWZ = wp1.z;`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform vec3 uLight; uniform vec3 uDark; uniform float uBand; uniform float uOrigin; uniform vec3 uFLight; uniform vec3 uFDark; uniform float uFOrigin; uniform float uFHalf; varying float vWX; varying float vWZ; varying float vH;")
+      .replace("#include <color_fragment>", `#include <color_fragment>
+        float st = mod(floor((vWX - uOrigin) / uBand), 2.0);
+        vec3 gc = mix(uLight, uDark, st);
+        if (uFHalf > 0.0 && abs(vWZ) < uFHalf) { gc = mix(uFLight, uFDark, mod(floor((vWX - uFOrigin) / uBand), 2.0)); }
+        diffuseColor.rgb = mix(gc * 0.6, gc * 1.12, clamp(vH / 0.11, 0.0, 1.0));`);
+  };
+
+  const mesh = new THREE.InstancedMesh(geo, material, PER * TILES * TILES);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const base = Array.from({ length: PER }, () => ({ x: rand() * CELL, z: rand() * CELL, yaw: rand() * Math.PI * 2, s: 0.7 + rand() * 0.9, tilt: (rand() - 0.5) * 0.4 }));
+  let n = 0;
+  for (let ti = 0; ti < TILES; ti++) {
+    for (let tj = 0; tj < TILES; tj++) {
+      for (const b of base) {
+        q.setFromEuler(e.set(b.tilt, b.yaw, 0));
+        m4.compose(new THREE.Vector3((ti - 1) * CELL + b.x, 0, (tj - 1) * CELL + b.z), q, new THREE.Vector3(1, b.s, 1));
+        mesh.setMatrixAt(n++, m4);
+      }
+    }
+  }
+  mesh.frustumCulled = false;
+  mesh.receiveShadow = true;
+  const group = new THREE.Group();
+  group.add(mesh);
+  return {
+    group,
+    update(camera, now, anim, windSpeed = 0) {
+      group.position.set(Math.floor(camera.position.x / CELL) * CELL, 0, Math.floor(camera.position.z / CELL) * CELL);
+      U.uTime.value = now;
+      U.uWind.value = anim ? 0.5 + windSpeed * 0.12 : 0;
     },
   };
 }

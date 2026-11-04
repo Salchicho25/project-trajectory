@@ -55,6 +55,9 @@ data/             (à venir, phase 2) raw/ hors git, processed/ versionné si l�
 - Rebonds : `simulate(..., bounces=N, surface="gazon", roll=True)`. `bounces=0` garde l'ancien comportement (arrêt au premier contact). `carry` = premier contact, `distance` = arrêt final.
 - Vue 3D : repère three.js = (x, z, −y) par rapport au simulateur (rotation propre, les vecteurs rotation se convertissent pareil). Les tronçons du tracé sont coupés à chaque contact.
 - Export Fusion : script généré testé contre une FAUSSE API (`tests/test_export.py`). Non testé dans Fusion lui-même : si une erreur apparaît dans Fusion, la corriger dans `web/export.py` et ajouter le cas au faux Fusion.
+- `web/static/vendor/` reproduit l'arborescence de `examples/jsm` de three.js r160 (objects/, postprocessing/, shaders/) : les imports relatifs des addons doivent rester résolubles hors ligne. `tests/test_web.py` le vérifie. Ajouter un addon = copier le fichier ET ses dépendances.
+- Qualité 3D : `scene3d.setQuality('high'|'standard')`. Élevée = composer (bloom) + ombres 2048 + herbe ; Standard = rendu direct. Toute nouvelle passe coûteuse doit se couper en Standard.
+- Personnages 3D : procéduraux (capsules et sphères instanciées), faute de modèle libre téléchargeable de façon fiable (Quaternius passe par Patreon). Si un `.glb` CC0 est ajouté un jour, vérifier sa licence et copier GLTFLoader et BufferGeometryUtils dans `vendor/`.
 - Direction visuelle « Centre Court » épinglée par l'utilisateur (Wimbledon : vert, violet, blanc, or, serif Libre Caslon + Barlow Semi Condensed). Contrat de design dans `.impeccable/surfaces/`, produit dans `PRODUCT.md`. Ni logo ni nom de marque.
 - Une fonctionnalité = une branche `feat/...` → PR → CI verte → merge sur `main`.
 - Après un résultat marquant, ajouter une entrée datée dans `docs/journal.md` et cocher `ROADMAP.md`.

@@ -5,6 +5,14 @@ Le plus récent en haut.
 
 ---
 
+## 2026-11-04 — Rendu 3D : ciel physique, post-traitement, herbe, décor sobre, corrections de la revue
+- Recherche de bibliothèques : `Sky` (addon three.js), `EffectComposer` + `UnrealBloomPass` + `OutputPass`, herbe instanciée avec vent dans le shader. Tout est copié en local (hors ligne), arborescence miroir de `examples/jsm`.
+- Non fait, faute de source fiable : de vrais modèles de joueurs (Quaternius ne propose qu'un lien Patreon, rien de CC0 prêt à télécharger pour les stades). Personnages procéduraux plus soignés à la place (bras croisés pour le mur, public en corps et têtes instanciés, carnations variées). Pas d'occlusion ambiante (GTAO) ni de profondeur de champ : les ombres suffisent pour l'instant.
+- Revue appliquée : arbres près du noir remplacés par des houppiers arrondis dans les verts + haie taillée continue ; public blanc, crème et verts avec 1 spectateur sur 12 en couleur, sans le violet du tir ; onglets : dégradé seulement s'il reste des onglets, onglet actif toujours visible, deux rangées sous 760 px ; étiquette « Ralenti » quand la caméra Cinéma ralentit ; note « Balle et tracé agrandis pour la lecture » ; enregistrement vidéo abandonné proprement si on change de réglage, de vue ou si la page est masquée ; bouton Vidéo jamais désactivé (aria-disabled), « Photo enregistrée » annoncé ; Lecture/Pause sans `aria-pressed`, `aria-valuetext` sur le curseur de temps ; sans mouvement, la boucle est décochée et nuages, vent et herbe sont figés ; monde 3D reconstruit seulement quand la situation change (terrains de taille fixe) ; ombres calées sur la grille de la texture (plus de scintillement) ; caméra tribune plus proche pour les tirs longs.
+- Piège : le motif d'herbe doit être périodique (9 tuiles identiques de 20 m) sinon tout saute quand le groupe suit la caméra par pas d'une cellule.
+
+---
+
 ## 2026-11-04 — Bug 3D : la balle ne suivait pas la trajectoire (signalé par l'utilisateur)
 - `sampleAt()` de `scene3d.js` renvoyait la position et la vitesse dans le repère du simulateur (x, y, z) alors que la scène 3D est en (x, z, −y) : la hauteur servait de profondeur, la balle restait au sol à côté du tracé, et la caméra de suivi s'orientait sur une vitesse fausse. Le tracé, les balles fantômes et les contacts utilisaient la bonne conversion, d'où une scène en apparence plausible. Corrigé.
 - Leçon : mes captures montraient la balle près du sol sur le basket et je ne l'ai pas relevé. Vérifier qu'un objet mobile est au bout de son tracé, pas seulement qu'il est visible.

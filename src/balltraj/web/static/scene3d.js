@@ -7,7 +7,12 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/OrbitControls.js";
-import { buildEnvironment, clouds, groundSpec, stripes } from "./env3d.js";
+import { Sky } from "three/addons/objects/Sky.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { buildEnvironment, clouds, grassPatch, groundSpec, stripes } from "./env3d.js";
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const nf = (v, d = 0) => v.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -97,7 +102,7 @@ function ballTexture(key, kit) {
   return tex;
 }
 
-export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => {} } = {}) {
+export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => {}, quality: initialQuality = "high" } = {}) {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -129,15 +134,17 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
   // ---------------------------------------------------------------- ciel, lumières
   const SUN_DIR = new THREE.Vector3(-0.9, 1.7, 0.8).normalize();
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(1500, 24, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: kit.sky.clone() }, bottom: { value: horizon.clone() }, sunDir: { value: SUN_DIR.clone() } },
-      vertexShader: "varying vec3 dir; void main(){ dir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-      fragmentShader: "uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; varying vec3 dir; void main(){ float t = smoothstep(0.0, 0.55, dir.y); vec3 c = mix(bottom, top, t); float s = max(dot(normalize(dir), sunDir), 0.0); c += vec3(1.0, 0.96, 0.85) * (pow(s, 700.0) * 2.5 + pow(s, 18.0) * 0.22); gl_FragColor = vec4(c, 1.0);\n#include <colorspace_fragment>\n}",
-    }),
-  );
+  // ciel physique (modèle de Preetham) : soleil, halo et dégradé de l'horizon calculés, voilé pour rester dans la palette
+  const sky = new Sky();
+  sky.scale.setScalar(3000);
+  {
+    const u = sky.material.uniforms;
+    u.turbidity.value = 4.5;
+    u.rayleigh.value = 0.8;
+    u.mieCoefficient.value = 0.006;
+    u.mieDirectionalG.value = 0.86;
+    u.sunPosition.value.copy(SUN_DIR);
+  }
   scene.add(sky);
   scene.add(new THREE.HemisphereLight(kit.sky, lawn()[1], 0.85));
   const sun = new THREE.DirectionalLight(kit.paper, 2.1);
@@ -156,7 +163,8 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   let tt = [], px = [], py = [], pz = [], sp = [], om = [], qs = [];
   let trail = [], ghosts = null, marks = [], rings = [], impacts = [];
   let ballGroup = null, ballMesh = null, ballTex = null, ghostScale = 0;
-  let spinArrow = null, puffs = [], windPts = null, envUpdate = () => {};
+  let spinArrow = null, puffs = [], windPts = null, envUpdate = () => {}, grass = null;
+  let quality = initialQuality, composer = null, slow = false, recDone = null;
   const windVec = new THREE.Vector3(), windBox = { x0: -20, x1: 100, zh: 30 };
   let t = 0, hold = 0, playing = !reduce.matches, speed = 1, loop = true, active = false;
   let curT = 0, recorder = null, recChunks = [], savedLoop = true;
@@ -263,9 +271,17 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     const env = buildEnvironment(d.scenario, d.geometry, kit, { xmax, ext, light, dark });
     world.add(env.group);
     world.add(buildScenery(d.geometry, env.handles));
+    grass = spec.grass
+      ? grassPatch(kit, { light: spec.light, dark: spec.dark, band, origin: ground.position.x - length / 2, fair: spec.fair })
+      : null;
+    if (grass) { world.add(grass.group); grass.group.visible = quality === "high"; }
     const cloudsFx = clouds(kit, xmax * 0.5);
     world.add(cloudsFx.group);
-    envUpdate = (dt) => { env.update(dt); cloudsFx.update(dt); };
+    envUpdate = (dt, now, anim) => {
+      env.update(dt);
+      if (anim) cloudsFx.update(dt);
+      grass?.update(camera, now, anim, windVec.length());
+    };
     scene.fog = new THREE.Fog(horizon, ext * 1.6 + 60, ext * 6 + 500);
   }
   const ymaxAbs = () => py.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
@@ -443,8 +459,9 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
         target: P(xend * 0.42, 0, Math.max(zmax * 0.45, 1.2)),
       };
     }
-    const dist = Math.max(ext * 1.05, 11);          // à droite du tireur : le tir va de gauche à droite
-    return { pos: P(mid, -dist, Math.max(zmax * 1.1, 4) + ext * 0.16), target: P(mid, 0, Math.max(zmax * 0.25, 0.8)) };
+    const long = ext > 90;                          // tirs très longs (golf, home run) : on se rapproche pour lire l'arc
+    const dist = Math.max(ext * (long ? 0.72 : 1.05), 11);    // à droite du tireur : le tir va de gauche à droite
+    return { pos: P(mid, -dist, Math.max(zmax * 1.1, 4) + ext * (long ? 0.08 : 0.16)), target: P(mid, 0, Math.max(zmax * 0.25, 0.8)) };
   }
 
   function setCamera(name, instant = false) {
@@ -580,8 +597,9 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     }
     // l'ombre suit la balle : résolution fine autour d'elle quelle que soit la longueur du tir
     const S = Math.min(130, Math.max(28, ext * 0.55));
-    sun.position.set(p.x - S * 0.9, S * 1.7, p.z + S * 0.8);
-    sun.target.position.set(p.x, 0, p.z);
+    const texel = (S * 2) / 2048, sx = Math.round(p.x / texel) * texel, sz = Math.round(p.z / texel) * texel;   // l'ombre ne scintille pas
+    sun.position.set(sx - S * 0.9, S * 1.7, sz + S * 0.8);
+    sun.target.position.set(sx, 0, sz);
     if (Math.abs(sun.shadow.camera.right - S) > 1) {
       Object.assign(sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: S * 5 });
       sun.shadow.camera.updateProjectionMatrix();
@@ -602,6 +620,36 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     hud.kmh.textContent = `${nf(s.speed * 3.6, 0)} km/h`;
   }
 
+  // qualité : « standard » = rendu direct ; « élevée » = halo (bloom), ombres fines, herbe, résolution écran
+  function renderFrame() {
+    if (composer && quality === "high") composer.render(); else renderer.render(scene, camera);
+  }
+  function applyQuality() {
+    const high = quality === "high";
+    renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio || 1, 2) : 1);
+    sun.shadow.mapSize.set(high ? 2048 : 1024, high ? 2048 : 1024);
+    if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    if (high && !composer) {
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.42, 0.55, 0.92));
+      composer.addPass(new OutputPass());
+    }
+    if (grass) grass.group.visible = high;
+    resize();
+  }
+
+  // arrête et abandonne un enregistrement en cours (réglage modifié, onglet masqué...) : le bouton se libère
+  function abortRecording(reason) {
+    if (!recorder) return;
+    const r = recorder, done = recDone;
+    recorder = null; recDone = null;
+    r.onstop = null;
+    try { r.stop(); } catch { /* déjà arrêté */ }
+    loop = savedLoop;
+    done?.(null, reason);
+  }
+
   function updateWind(dt) {
     if (!windPts) return;
     const pos = windPts.geometry.attributes.position, b = windBox, span = b.x1 - b.x0;
@@ -616,7 +664,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
   // photo : on dessine puis on lit le canvas dans la même tâche (sans quoi WebGL l'a déjà vidé)
   function snapshot() {
-    return new Promise((resolve) => { renderer.render(scene, camera); canvas.toBlob(resolve, "image/png"); });
+    return new Promise((resolve) => { renderFrame(); canvas.toBlob(resolve, "image/png"); });
   }
 
   // vidéo : un tir complet, une seule fois, enregistré depuis le canvas (sans les bandeaux de la page)
@@ -627,7 +675,8 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     recorder = new MediaRecorder(canvas.captureStream(60), { mimeType: mime, videoBitsPerSecond: 9_000_000 });
     recChunks = [];
     recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
-    recorder.onstop = () => { const blob = new Blob(recChunks, { type: "video/webm" }); recorder = null; loop = savedLoop; onDone(blob); };
+    recDone = onDone;
+    recorder.onstop = () => { const blob = new Blob(recChunks, { type: "video/webm" }); recorder = null; recDone = null; loop = savedLoop; onDone(blob); };
     savedLoop = loop; loop = false;
     t = 0; heading.set(1, 0, 0); playing = true;
     recorder.start(200);
@@ -639,6 +688,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     const r = canvas.getBoundingClientRect();
     const w = Math.max(2, Math.round(r.width)), h = Math.max(2, Math.round(r.height));
     renderer.setSize(w, h, false);
+    composer?.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
@@ -650,7 +700,8 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     if (!data) return;
     if (playing) {
       let k = speed;
-      if (mode === "cine") for (const im of impacts) if (Math.abs(t - im.t) < 0.3) { k *= 0.3; break; }   // ralenti aux contacts
+      slow = false;
+      if (mode === "cine") for (const im of impacts) if (Math.abs(t - im.t) < 0.3) { k *= 0.3; slow = true; break; }   // ralenti aux contacts
       t += dt * k;
       if (t > T + HOLD) {
         if (loop) { t = 0; heading.set(1, 0, 0); } else { t = T; playing = false; if (recorder) recorder.stop(); }
@@ -658,13 +709,13 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     }
     const tBall = Math.min(t, T);
     curT = tBall;
-    envUpdate(dt);
-    updateWind(dt);
+    envUpdate(dt, now / 1000, !reduce.matches);
+    if (!reduce.matches) updateWind(dt);
     const { p } = place(tBall);
     updateCamera(dt, p);
-    renderer.render(scene, camera);
+    renderFrame();
     hudAcc += dt;
-    if (hudAcc > 0.05 || !playing) { hudAcc = 0; writeHud(tBall); onFrame({ t: tBall, T, playing }); }
+    if (hudAcc > 0.05 || !playing) { hudAcc = 0; writeHud(tBall); onFrame({ t: tBall, T, playing, slow }); }
   }
 
   function stopLoop() { cancelAnimationFrame(raf); raf = 0; }
@@ -672,6 +723,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
   // ---------------------------------------------------------------- interface publique
   function setData(d, { restart = true } = {}) {
+    abortRecording("Enregistrement interrompu : le réglage a changé.");
     data = d;
     const S = d.samples;
     tt = S.t; px = S.x; py = S.y; pz = S.z; sp = S.speed;
@@ -679,7 +731,8 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     T = tt[tt.length - 1] || 1;
     xmax = Math.max(...px, 5); zmax = Math.max(...pz, 1); xend = px[px.length - 1];
     ext = Math.max(xmax, zmax * 2, 8);
-    const key = `${d.scenario}|${Math.round(ext / 10)}|${Math.round(ymaxAbs())}`;
+    const fixedVenue = d.scenario !== "Drive golf" && d.scenario !== "Libre";   // terrain de taille fixe : inutile de le reconstruire à chaque réglage
+    const key = fixedVenue ? d.scenario : `${d.scenario}|${Math.round(ext / 10)}|${Math.round(ymaxAbs())}`;
     refreshKit();
     if (key !== staticKey) { staticKey = key; buildWorld(d); if (active) setCamera(mode === "libre" ? "tribune" : mode, true); }
     buildDynamic(d);
@@ -697,11 +750,14 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
       resize();
       if (data) { setCamera(mode === "libre" ? "tribune" : mode, true); place(Math.min(t, T)); }
       startLoop();
-    } else stopLoop();
+    } else { abortRecording("Enregistrement interrompu : la vue 3D a été quittée."); stopLoop(); }
   }
 
   new ResizeObserver(() => active && resize()).observe(canvas);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) stopLoop(); else if (active) startLoop(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { abortRecording("Enregistrement interrompu : la page a été masquée."); stopLoop(); }
+    else if (active) startLoop();
+  });
 
   return {
     setData, setActive, setCamera,
@@ -709,9 +765,11 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     pause() { playing = false; },
     toggle() { if (playing) playing = false; else { if (t >= T) t = 0; playing = true; } return playing; },
     seek(time) { t = Math.min(Math.max(time, 0), T); playing = false; if (data) { place(t); writeHud(t); } },
-    replay() { t = 0; heading.set(1, 0, 0); playing = !reduce.matches; if (data) place(0); },
+    replay() { t = reduce.matches ? T : 0; heading.set(1, 0, 0); playing = !reduce.matches; if (data) place(t); },
     setSpeed(v) { speed = v; },
     snapshot, record,
+    setQuality(q) { quality = q; applyQuality(); },
+    get quality() { return quality; },
     setLoop(v) { loop = v; },
     get duration() { return T; },
     get playing() { return playing; },

@@ -47,6 +47,8 @@ Le bouton **Vue 3D** rejoue le tir en temps réel (three.js, embarqué en local,
 - **5 caméras** : **Cinéma** (réalisation automatique : derrière la balle, travelling de côté, face à l'arrivée, **ralenti aux rebonds**), Suivi, Tribune, Aérien, Arrivée. Une rotation à la souris donne la main à la caméra libre.
 - **Un vrai décor par situation** : terrain de foot (surface de réparation tracée, but avec filet, **mur de joueurs**, tribunes avec public), parquet de basket (raquette, ligne à 3 points, filet), fairway de golf (rough, bunkers, fanions de distance, arbres), terrain de baseball (avant-champ en terre, bases, piste d'avertissement, tribunes). Soleil, nuages qui dérivent, forêt à l'horizon.
 - **Lecture de la physique dans la scène** : flèche or = axe de rotation de la balle (d'où vient l'effet Magnus), poussière et anneau à chaque contact avec le sol, particules de **vent** quand il y en a.
+- **Rendu soigné** : ciel physique (addon `Sky` de three.js : soleil, halo, voile d'horizon), halo lumineux sur le soleil, la balle et les filets d'or (post-traitement), ombres fines qui suivent la balle, **herbe réelle** (54 000 brins, vent dans le shader, rayures de tonte recalculées) autour de la caméra, haies taillées et arbres arrondis, public sobre (blanc, crème, verts, un spectateur sur douze en touche de couleur).
+- **Réglage « Qualité » (Élevée / Standard)** dans la barre de lecture : Standard coupe le halo et l'herbe et allège les ombres, pour les machines modestes. Le choix est mémorisé.
 - **Photo (PNG) et vidéo (WebM)** du tir en un clic. **Lien de partage** : l'adresse contient le tir (situation, réglages, vue, caméra) et le rouvre à l'identique.
 
 ### Rebonds et sol

@@ -83,6 +83,8 @@ function buildTabs() {
     });
     tabs.append(b);
   });
+  tabs.addEventListener("scroll", updateTabFade);
+  window.addEventListener("resize", updateTabFade);
   const sel = $("ball");
   for (const b of state.meta.balls) sel.append(el("option", { value: b.key, textContent: b.name }));
   sel.addEventListener("change", () => {
@@ -142,10 +144,19 @@ function selectScenario(name) {
     const on = s.name === name;
     t.setAttribute("aria-selected", String(on));
     t.tabIndex = on ? 0 : -1;
-    if (on) $("panel").setAttribute("aria-labelledby", t.id);
+    if (on) {
+      $("panel").setAttribute("aria-labelledby", t.id);
+      t.scrollIntoView?.({ inline: "nearest", block: "nearest" });   // l'onglet choisi reste visible
+    }
   });
   paintAll();
+  updateTabFade();
   refresh(true);
+}
+
+function updateTabFade() {
+  const t = $("tabs");
+  t.classList.toggle("fade-right", t.scrollWidth - t.clientWidth - t.scrollLeft > 2);
 }
 
 function syncTarget() {
@@ -306,6 +317,10 @@ function wireButtons() {
 let view = "2d", scene3d = null, replayTimer = 0, scrubbing = false;
 const CAMERAS = ["cine", "suivi", "tribune", "aerien", "arrivee"];
 
+function initialQuality() {
+  try { return localStorage.getItem("trajectoire-qualite") || (reduceMotion.matches ? "standard" : "high"); } catch { return "high"; }
+}
+
 async function ensure3D() {
   if (scene3d) return scene3d;
   try {
@@ -314,7 +329,8 @@ async function ensure3D() {
       $("cv-3d"),
       { time: $("h-time"), dist: $("h-dist"), height: $("h-height"), speed: $("h-speed"), kmh: $("h-kmh") },
       {
-        onFrame: ({ t, T, playing }) => {
+        quality: initialQuality(),
+        onFrame: ({ t, T, playing, slow }) => {
           const r = $("r-time");
           r.max = String(Math.round(T * 1000));
           if (!scrubbing) r.value = String(Math.round(t * 1000));
@@ -322,11 +338,14 @@ async function ensure3D() {
           $("o-time").textContent = `${nf(t, 2)} / ${nf(T, 2)} s`;
           const b = $("b-play");
           b.textContent = playing ? "Pause" : "Lecture";
-          b.setAttribute("aria-pressed", String(playing));
+          r.setAttribute("aria-valuetext", `${nf(t, 2)} s sur ${nf(T, 2)} s`);
+          $("h-slow").hidden = !slow;
         },
         onMode: (m) => CAMERAS.forEach((n) => $(`c-${n}`).setAttribute("aria-pressed", String(n === m))),
       },
     );
+    $("s-quality").value = scene3d.quality;
+    scene3d.setLoop($("t-loop").checked);
     return scene3d;
   } catch (err) {
     $("msg-3d").textContent = `La vue 3D demande WebGL, indisponible ici (${err.message}).`;
@@ -372,20 +391,26 @@ function saveBlob(blob, name) {
 function wire3d() {
   $("b-photo").addEventListener("click", async () => {
     const blob = await scene3d?.snapshot();
-    if (blob) saveBlob(blob, "Trajectoire_3D.png");
+    if (blob) {
+      saveBlob(blob, "Trajectoire_3D.png");
+      $("export-status").textContent = "Photo enregistrée : Trajectoire_3D.png.";
+    }
   });
   $("b-video").addEventListener("click", () => {
     const b = $("b-video");
-    if (!scene3d) return;
-    b.disabled = true;
+    if (!scene3d || b.getAttribute("aria-disabled") === "true") return;
+    b.setAttribute("aria-disabled", "true");               // pas de « disabled » : le focus clavier reste sur le bouton
     b.textContent = "Enregistrement…";
+    $("export-status").textContent = "Enregistrement d'un tir complet en cours…";
+    const release = () => { b.removeAttribute("aria-disabled"); b.textContent = "Vidéo"; };
     const started = scene3d.record((blob, err) => {
-      b.disabled = false;
-      b.textContent = "Vidéo";
-      if (blob) saveBlob(blob, "Trajectoire_3D.webm");
-      else $("export-status").textContent = err ?? "Enregistrement impossible.";
+      release();
+      if (blob) {
+        saveBlob(blob, "Trajectoire_3D.webm");
+        $("export-status").textContent = "Vidéo enregistrée : Trajectoire_3D.webm.";
+      } else $("export-status").textContent = err ?? "Enregistrement impossible.";
     });
-    if (!started) { b.disabled = false; b.textContent = "Vidéo"; }
+    if (!started) release();
   });
   $("v-2d").addEventListener("click", () => setView("2d"));
   $("v-3d").addEventListener("click", () => setView("3d"));
@@ -394,7 +419,12 @@ function wire3d() {
   r.addEventListener("input", () => { scrubbing = true; scene3d?.seek(Number(r.value) / 1000); });
   r.addEventListener("change", () => { scrubbing = false; });
   $("s-speed").addEventListener("change", (e) => scene3d?.setSpeed(Number(e.target.value)));
+  $("t-loop").checked = !reduceMotion.matches;                 // sans mouvement, pas de relance automatique
   $("t-loop").addEventListener("change", (e) => scene3d?.setLoop(e.target.checked));
+  $("s-quality").addEventListener("change", (e) => {
+    scene3d?.setQuality(e.target.value);
+    try { localStorage.setItem("trajectoire-qualite", e.target.value); } catch { /* sans conséquence */ }
+  });
   for (const n of CAMERAS) $(`c-${n}`).addEventListener("click", () => scene3d?.setCamera(n));
 }
 

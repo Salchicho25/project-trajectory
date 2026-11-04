@@ -270,6 +270,15 @@ La vue 3D reste dans le monde « Centre Court » : aucun nouveau matériau, seul
 - **Caméras** : Suivi, Tribune (à droite du tireur, le tir va de gauche à droite), Aérien, Arrivée. Mouvement signature : transition d'une caméra à l'autre en 0,9 s, exponentielle, instantanée sous `prefers-reduced-motion`.
 - Le fichier `.impeccable/design.json` n'a pas été régénéré pour cette extension : ce paragraphe fait foi pour la 3D.
 
+### Rendu et matières 3D (mise à jour)
+
+- **Ciel** : addon `Sky`, voilé (turbidité 4,5, Rayleigh 0,8) pour rester pâle et dans la palette ; le brouillard garde la couleur de l'horizon des jetons.
+- **Halo** : bloom discret (force 0,42, seuil 0,92) : ne s'allume que pour le soleil, la balle et l'or.
+- **Herbe** : brins dans les couleurs des bandes du sol (même rayures recalculées dans le shader), sombres à la racine, un peu plus clairs à la pointe.
+- **Arbres et haies** : houppiers arrondis dans `--green` éclairci vers `--turf-b`, jamais mêlés à `--ink` ; haie taillée en `--green` assombri vers `--rail`.
+- **Public** : `--paper`, crème (`--paper` + `--gold` 14 %), `--turf-b`, verts éclaircis ; 1 spectateur sur 12 en `--gold` ou `--traj-2` éclairci. Le violet franc reste réservé au tir.
+- **Qualité** : « Élevée » (halo, herbe, ombres 2048) et « Standard » (rendu direct). Réglage dans la barre de lecture.
+
 ### Décors 3D
 
 Chaque situation a un lieu, construit avec les seuls jetons existants (aucune couleur nouvelle en dehors de `--sky`).

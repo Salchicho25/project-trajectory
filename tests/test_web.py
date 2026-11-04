@@ -214,3 +214,18 @@ def test_every_file_the_page_depends_on_is_served(base_url):
 def test_three_js_license_ships_with_the_vendored_copy(base_url):
     status, _, body = _get(base_url + "/vendor/LICENSE-three.txt")
     assert (status == 200 and b"MIT" in body[:200].upper()) or b"Permission is hereby granted" in body
+
+
+def test_vendored_modules_find_their_own_dependencies():
+    """Les addons three.js importent leurs voisins par chemin relatif : tous doivent exister hors ligne."""
+    from pathlib import Path
+
+    vendor = Path(__file__).resolve().parents[1] / "src" / "balltraj" / "web" / "static" / "vendor"
+    checked = 0
+    for f in vendor.rglob("*.js"):
+        if f.name.endswith(".min.js"):
+            continue
+        for spec in re.findall(r"from\s+['\"](\.{1,2}/[^'\"]+)['\"]", f.read_text(encoding="utf-8")):
+            assert (f.parent / spec).resolve().is_file(), f"{f.name} importe {spec}, introuvable"
+            checked += 1
+    assert checked >= 8

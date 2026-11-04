@@ -56,7 +56,7 @@
       </figure>
       <figure class="plot plot-3d">
         <figcaption>Vue 3D</figcaption>
-        <canvas id="cv-3d" role="img" aria-label="Vue 3D de la trajectoire, rejouée en temps réel"></canvas>
+        <canvas id="cv-3d" role="img" aria-label="Vue 3D de la trajectoire, rejouée en temps réel" aria-describedby="verdict"></canvas>
         <dl class="hud" aria-hidden="true">
           <div><dt>Temps</dt><dd id="h-time">0,00 s</dd></div>
           <div><dt>Distance</dt><dd id="h-dist">0,0 m</dd></div>
@@ -64,8 +64,9 @@
           <div><dt>Vitesse</dt><dd><span id="h-speed">0 m/s</span> <small id="h-kmh">0 km/h</small></dd></div>
         </dl>
         <p id="msg-3d" class="msg-3d" role="status"></p>
+        <p id="h-slow" class="slow-tag" hidden>Ralenti ×0,3</p>
         <div class="deck">
-          <button type="button" id="b-play" aria-pressed="true">Pause</button>
+          <button type="button" id="b-play">Pause</button>
           <input type="range" id="r-time" min="0" max="1000" step="1" value="0" aria-label="Position dans le tir">
           <output id="o-time" for="r-time">0,00 / 0,00 s</output>
           <label class="deck-speed">Vitesse
@@ -78,10 +79,17 @@
             </select>
           </label>
           <label class="deck-loop"><input type="checkbox" id="t-loop" checked> Boucle</label>
+          <label class="deck-quality">Qualité
+            <select id="s-quality" aria-label="Qualité de l'image 3D">
+              <option value="high">Élevée</option>
+              <option value="standard">Standard</option>
+            </select>
+          </label>
           <div class="deck-tools" role="group" aria-label="Capture">
             <button type="button" id="b-photo">Photo</button>
             <button type="button" id="b-video">Vidéo</button>
           </div>
+          <p class="deck-note">Balle et tracé sont agrandis pour la lecture ; les positions, elles, sont exactes.</p>
           <div class="cams" role="group" aria-label="Caméra">
             <button type="button" id="c-cine" aria-pressed="false">Cinéma</button>
             <button type="button" id="c-suivi" aria-pressed="false">Suivi</button>
