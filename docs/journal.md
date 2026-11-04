@@ -5,6 +5,13 @@ Le plus récent en haut.
 
 ---
 
+## 2026-11-04 — Bug 3D : la balle ne suivait pas la trajectoire (signalé par l'utilisateur)
+- `sampleAt()` de `scene3d.js` renvoyait la position et la vitesse dans le repère du simulateur (x, y, z) alors que la scène 3D est en (x, z, −y) : la hauteur servait de profondeur, la balle restait au sol à côté du tracé, et la caméra de suivi s'orientait sur une vitesse fausse. Le tracé, les balles fantômes et les contacts utilisaient la bonne conversion, d'où une scène en apparence plausible. Corrigé.
+- Leçon : mes captures montraient la balle près du sol sur le basket et je ne l'ai pas relevé. Vérifier qu'un objet mobile est au bout de son tracé, pas seulement qu'il est visible.
+- Aussi : la lecture 3D reste en temps réel sur écran lent (plafond de pas 0,25 s) et la barre de lecture se met à jour au changement de situation.
+
+---
+
 ## 2026-11-04 — 3D premium : décors, atmosphère, caméra Cinéma, photo, vidéo, partage
 - `env3d.js` : un décor aux cotes réglementaires par situation (foot, basket, golf, baseball), tribunes avec public instancié, forêt, nuages. Les arbres du golf sont du côté opposé à la caméra : placés des deux côtés, ils masquaient le fairway.
 - Atmosphère : disque solaire dans le shader du ciel, direction identique à celle de la lumière qui projette les ombres.

@@ -175,8 +175,8 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     const dt = tt[lo + 1] - tt[lo] || 1e-9;
     const f = Math.min(1, Math.max(0, (time - tt[lo]) / dt));
     const L = (a) => a[lo] + (a[lo + 1] - a[lo]) * f;
-    tmp.pos.set(L(px), L(py), L(pz));
-    tmp.vel.set((px[lo + 1] - px[lo]) / dt, (py[lo + 1] - py[lo]) / dt, (pz[lo + 1] - pz[lo]) / dt);
+    tmp.pos.set(L(px), L(pz), -L(py));                        // repère du simulateur -> repère three.js : (x, z, -y)
+    tmp.vel.set((px[lo + 1] - px[lo]) / dt, (pz[lo + 1] - pz[lo]) / dt, -(py[lo + 1] - py[lo]) / dt);
     tmp.speed = L(sp);
     tmp.i = lo; tmp.f = f;
     return tmp;
@@ -645,7 +645,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
   function frame(now) {
     raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (now - last) / 1000 || 0);
+    const dt = Math.min(0.25, (now - last) / 1000 || 0);       // temps réel même si l'écran est lent (sans carte graphique)
     last = now;
     if (!data) return;
     if (playing) {
@@ -688,6 +688,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     if (!active) return;
     if (mode === "suivi") { const f = sampleAt(t); camera.position.copy(P(px[0], py[0], pz[0])).addScaledVector(heading, -8).setY(2.5); lookAt.copy(f.pos); }
     place(Math.min(t, T)); writeHud(Math.min(t, T));
+    onFrame({ t: Math.min(t, T), T, playing });         // la barre de lecture suit tout de suite la nouvelle durée
   }
 
   function setActive(on) {
