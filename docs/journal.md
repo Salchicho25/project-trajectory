@@ -5,6 +5,15 @@ Le plus récent en haut.
 
 ---
 
+## 2026-11-04 — Interface web « Centre Court »
+- Nouvelle interface web locale (`trajectoire-web`) : serveur stdlib sur 127.0.0.1, API JSON, page HTML/CSS/JS sans build.
+- Direction visuelle épinglée par l'utilisateur : esprit Wimbledon (vert profond, violet, blanc, or, serif). Remplace une première version « papier millimétré » écartée avant livraison.
+- Le relevé est à l'échelle, balles jaunes à intervalles de temps réguliers, forces à l'apogée, échelle verticale écrite quand elle diffère de l'horizontale.
+- Nouveau `Trajectory.accelerations()` : les forces affichées viennent de Python, vérifiées contre les équations du mouvement (différences finies).
+- Bug trouvé en mobile : la page se calait sur la largeur des onglets (521 px dans un cadre de 375 px). Corrigé par `grid-template-columns: minmax(0, 1fr)` sur le body.
+- Piège de test : le panneau d'aperçu ne sait pas émuler 375 px ; on charge la page dans un iframe de 375 px pour mesurer le vrai débordement.
+- 51 tests, couverture 95 %.
+
 ## 2026-11-04 — Phase 0 : fondations
 - Projet réorganisé en paquet installable (`src/balltraj`), commandes `trajectoire` et `trajectoire-etude`.
 - Qualité outillée : ruff, mypy, pytest-cov, CI GitHub Actions (Python 3.11 et 3.13).

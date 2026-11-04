@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T00:00:00Z",
+  "title": "Design System: Trajectoire",
+  "extensions": {
+    "colorMeta": {
+      "paper": { "role": "neutral", "displayName": "Blanc des tenues", "canonical": "oklch(99% 0.004 140)", "tonalRamp": ["oklch(15% 0.004 140)", "oklch(28% 0.004 140)", "oklch(41% 0.004 140)", "oklch(54% 0.004 140)", "oklch(67% 0.004 140)", "oklch(80% 0.004 140)", "oklch(90% 0.004 140)", "oklch(99% 0.004 140)"] },
+      "turf-a": { "role": "neutral", "displayName": "Pelouse claire", "canonical": "oklch(97.4% 0.022 145)", "tonalRamp": ["oklch(15% 0.022 145)", "oklch(28% 0.022 145)", "oklch(41% 0.022 145)", "oklch(54% 0.022 145)", "oklch(67% 0.022 145)", "oklch(80% 0.022 145)", "oklch(90% 0.022 145)", "oklch(97.4% 0.022 145)"] },
+      "turf-b": { "role": "neutral", "displayName": "Pelouse tondue", "canonical": "oklch(94.4% 0.040 145)", "tonalRamp": ["oklch(15% 0.040 145)", "oklch(28% 0.040 145)", "oklch(41% 0.040 145)", "oklch(54% 0.040 145)", "oklch(67% 0.040 145)", "oklch(80% 0.040 145)", "oklch(88% 0.040 145)", "oklch(94.4% 0.040 145)"] },
+      "ink": { "role": "neutral", "displayName": "Encre verte", "canonical": "oklch(22% 0.045 160)", "tonalRamp": ["oklch(15% 0.045 160)", "oklch(22% 0.045 160)", "oklch(32% 0.045 160)", "oklch(45% 0.045 160)", "oklch(58% 0.045 160)", "oklch(72% 0.045 160)", "oklch(85% 0.045 160)", "oklch(95% 0.045 160)"] },
+      "rail": { "role": "secondary", "displayName": "Vert profond", "canonical": "oklch(32% 0.085 158)", "tonalRamp": ["oklch(15% 0.085 158)", "oklch(24% 0.085 158)", "oklch(32% 0.085 158)", "oklch(45% 0.085 158)", "oklch(58% 0.085 158)", "oklch(72% 0.085 158)", "oklch(85% 0.085 158)", "oklch(95% 0.085 158)"] },
+      "gold": { "role": "tertiary", "displayName": "Or de filet", "canonical": "oklch(80% 0.115 85)", "tonalRamp": ["oklch(15% 0.115 85)", "oklch(28% 0.115 85)", "oklch(41% 0.115 85)", "oklch(56% 0.115 85)", "oklch(68% 0.115 85)", "oklch(80% 0.115 85)", "oklch(89% 0.115 85)", "oklch(95% 0.115 85)"] },
+      "traj": { "role": "primary", "displayName": "Violet de tracé", "canonical": "oklch(38% 0.150 305)", "tonalRamp": ["oklch(15% 0.150 305)", "oklch(25% 0.150 305)", "oklch(38% 0.150 305)", "oklch(50% 0.150 305)", "oklch(62% 0.150 305)", "oklch(74% 0.150 305)", "oklch(86% 0.150 305)", "oklch(95% 0.150 305)"] },
+      "green": { "role": "secondary", "displayName": "Vert de comparaison", "canonical": "oklch(46% 0.120 150)", "tonalRamp": ["oklch(15% 0.120 150)", "oklch(28% 0.120 150)", "oklch(46% 0.120 150)", "oklch(56% 0.120 150)", "oklch(66% 0.120 150)", "oklch(77% 0.120 150)", "oklch(88% 0.120 150)", "oklch(95% 0.120 150)"] },
+      "ball": { "role": "tertiary", "displayName": "Jaune optique", "canonical": "oklch(90% 0.200 112)", "tonalRamp": ["oklch(15% 0.200 112)", "oklch(28% 0.200 112)", "oklch(41% 0.200 112)", "oklch(55% 0.200 112)", "oklch(68% 0.200 112)", "oklch(80% 0.200 112)", "oklch(90% 0.200 112)", "oklch(96% 0.200 112)"] }
+    },
+    "typographyMeta": {
+      "mark": { "displayName": "Mark", "purpose": "Nom du produit en or dans le bandeau." },
+      "verdict": { "displayName": "Verdict", "purpose": "Énoncé du résultat du tir, serif 700." },
+      "heading": { "displayName": "Heading", "purpose": "Titres de groupe de réglages et du tableau." },
+      "body": { "displayName": "Body", "purpose": "Champs, tableau, onglets; chiffres tabulaires." },
+      "label": { "displayName": "Label", "purpose": "Aides, légendes de figure, sous-groupes du tableau." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Transitions de bouton, 120 ms; supprimées sous prefers-reduced-motion." },
+      { "name": "trace-draw", "value": "tracé dessiné une fois à chaque changement de tir", "purpose": "Mouvement signature (progress dans plot.js)." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "1100px" },
+      { "name": "single-column", "value": "760px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Carré, contour vert profond; actions secondaires.",
+      "html": "<button class=\"ds-btn\">Portée maximale</button>",
+      "css": ".ds-btn { height: 2.5rem; padding: 0 1rem; border: 1px solid var(--rail); border-radius: 0; background: var(--paper); color: var(--rail); font: 600 0.9375rem var(--font); letter-spacing: 0.02em; cursor: pointer; transition: background-color 120ms var(--ease), transform 120ms var(--ease); } .ds-btn:hover { background: var(--paper-2); } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid var(--traj); outline-offset: 2px; }"
+    },
+    {
+      "name": "Bouton primaire",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale unique, violet.",
+      "html": "<button class=\"ds-btn-primary\">Viser la cible</button>",
+      "css": ".ds-btn-primary { height: 2.5rem; padding: 0 1rem; border: 1px solid var(--traj); border-radius: 0; background: var(--traj); color: var(--paper); font: 600 0.9375rem var(--font); letter-spacing: 0.02em; cursor: pointer; transition: background-color 120ms var(--ease); } .ds-btn-primary:hover { background: oklch(31% 0.15 305); } .ds-btn-primary:focus-visible { outline: 2px solid var(--traj); outline-offset: 2px; }"
+    },
+    {
+      "name": "Champ numérique",
+      "kind": "input",
+      "refersTo": "number-field",
+      "description": "Valeur alignée à droite, contour 1 px, angles droits.",
+      "html": "<input class=\"ds-num\" type=\"number\" value=\"30\">",
+      "css": ".ds-num { width: 5.2rem; height: 2rem; padding: 0 0.45rem; text-align: right; font: 600 0.9375rem var(--font); background: var(--paper); color: var(--ink); border: 1px solid var(--ink-2); border-radius: 0; } .ds-num:hover { background: var(--paper-2); } .ds-num:focus-visible { outline: 2px solid var(--traj); outline-offset: 2px; }"
+    },
+    {
+      "name": "Bandeau et onglets",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Bandeau vert, filet or, onglet actif fondu dans la page.",
+      "html": "<div class=\"ds-rail\"><span class=\"ds-mark\">Trajectoire</span><button class=\"ds-tab\">Tennis</button><button class=\"ds-tab ds-tab-on\">Basket</button></div>",
+      "css": ".ds-rail { display: flex; align-items: flex-end; gap: 1.75rem; min-height: 3.75rem; padding: 0 1.25rem; background: var(--rail); color: var(--rail-ink); border-bottom: 1px solid var(--gold); } .ds-mark { align-self: center; font: 400 1.9rem/1 var(--display); color: var(--gold); } .ds-tab { border: 0; border-radius: 0; background: transparent; color: var(--rail-dim); padding: 0.75rem 1.15rem 0.9rem; font: 500 0.9375rem var(--font); letter-spacing: 0.03em; cursor: pointer; } .ds-tab:hover { color: var(--rail-ink); background: oklch(100% 0 0 / 0.07); } .ds-tab-on { background: var(--paper); color: var(--rail); font-weight: 700; } .ds-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }"
+    },
+    {
+      "name": "Verdict réussi",
+      "kind": "custom",
+      "refersTo": "verdict-success",
+      "description": "Tableau d'affichage vert et or quand le tir réussit.",
+      "html": "<p class=\"ds-verdict\">Dans la cible</p>",
+      "css": ".ds-verdict { margin: 0; padding: 0.7rem 1.15rem; min-height: 3.3rem; font: 700 1.55rem/1.15 var(--serif); background: var(--rail); color: var(--gold); border-bottom: 1px solid var(--gold); }"
+    },
+    {
+      "name": "Groupe de réglages",
+      "kind": "card",
+      "description": "Legend en serif vert profond, filet 1 px.",
+      "html": "<fieldset class=\"ds-group\"><legend>Tir</legend><div class=\"ds-row\"><label>Vitesse<span class=\"ds-unit\">m/s</span></label><input class=\"ds-num\" type=\"number\" value=\"30\"></div></fieldset>",
+      "css": ".ds-group { margin: 0; padding: 0; border: 0; } .ds-group legend { width: 100%; padding: 0 0 0.35rem; margin-bottom: 0.55rem; border-bottom: 1px solid var(--rail); font: 700 1.05rem/1.2 var(--serif); color: var(--rail); } .ds-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; margin-bottom: 0.7rem; font: 500 0.9375rem var(--font); } .ds-unit { color: var(--ink-2); margin-left: 0.25rem; font-weight: 400; } .ds-num { width: 5.2rem; height: 2rem; padding: 0 0.45rem; text-align: right; font: 600 0.9375rem var(--font); border: 1px solid var(--ink-2); border-radius: 0; background: var(--paper); }"
+    },
+    {
+      "name": "Pelouse rayée",
+      "kind": "custom",
+      "description": "Fond du relevé: bandes de tonte alternées et grille à l'échelle.",
+      "html": "<div class=\"ds-turf\"></div>",
+      "css": ".ds-turf { width: 240px; height: 96px; border: 1px solid var(--rail); background-color: var(--turf-a); background-image: repeating-linear-gradient(to right, transparent 0 24px, var(--turf-b) 24px 48px), linear-gradient(to right, var(--grid-10) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-10) 1px, transparent 1px); background-size: 48px 100%, 24px 24px, 24px 24px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le tableau de bord de Centre Court",
+    "overview": "Un lieu de prestige et de précision. Fond blanc des tenues, vert profond pour le bandeau et les titres, filets or sur le vert, violet réservé au tir réel et à l'action, pelouse en bandes de tonte sous les tracés. Inspiration seule d'un tournoi sur gazon : aucun logo, aucun nom, aucune marque reprise.\n\nLa densité est celle d'un instrument : trois colonnes séparées par des filets de 1 px, chiffres tabulaires, serif anglaise (Libre Caslon) pour le nom, le verdict et les titres, sans-serif condensée (Barlow Semi Condensed) pour le reste. Angles droits, filets, aucune ombre portée.",
+    "keyCharacteristics": [
+      "Un seul thème clair, angles droits (0 radius), filets de 1 px, aucune ombre portée.",
+      "Le violet est le tir réel et l'action ; le vert profond est la structure ; l'or n'existe que sur le vert.",
+      "Le relevé est un instrument à l'échelle : carreaux de pelouse carrés à l'écran, échelle toujours écrite sur la feuille.",
+      "Interface en français, nombres au format fr-FR, chiffres tabulaires."
+    ],
+    "rules": [
+      { "name": "The Purple Is The Shot Rule", "body": "Le violet désigne le tir réel et l'action possible, rien d'autre. Un nouvel élément décoratif ne le prend pas.", "section": "colors" },
+      { "name": "The Gold Needs Green Rule", "body": "L'or n'apparaît que sur le vert profond (ou comme filet adjacent). Jamais d'or sur blanc.", "section": "colors" },
+      { "name": "The Ball Is Yellow Rule", "body": "Le jaune ball est réservé à la balle et à sa légende.", "section": "colors" },
+      { "name": "The Token Source Rule", "body": "Aucune couleur n'est écrite en dur dans plot.js ; il lit les variables CSS.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Tout nombre est en chiffres tabulaires et formaté en fr-FR.", "section": "typography" },
+      { "name": "The Serif Speaks Rule", "body": "La serif est réservée au nom, au verdict et aux titres de groupe. Ni sur les étiquettes de champ, ni sur les boutons.", "section": "typography" },
+      { "name": "The No Shadow Rule", "body": "Pas de box-shadow décoratif, pas de flou, pas de dégradé de surface. Une séparation est un filet de 1 px ou un changement d'aplat.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do déclarer toute nouvelle couleur comme jeton dans :root de style.css, en OKLCH, et la lire depuis le canvas via css().",
+      "Do réserver le violet (traj) au tir réel, à l'action primaire, à la sélection et au focus.",
+      "Do garder les angles droits, les filets de 1 px et les aplats ; séparer par un filet ou un changement de fond.",
+      "Do écrire l'échelle sur chaque nouveau dessin à l'échelle, et la dire quand elle n'est pas 1:1.",
+      "Do utiliser traj (et non traj-2) pour tout petit texte violet ; vérifier le contraste du texte sur turf-b.",
+      "Do passer tout texte du canvas par text() avec vérification isFree quand il est facultatif.",
+      "Do formater les nombres en fr-FR avec chiffres tabulaires et écrire l'interface en français.",
+      "Do respecter prefers-reduced-motion pour toute nouvelle transition."
+    ],
+    "donts": [
+      "Don't ajouter d'ombre portée, de flou ou de coin arrondi hors du canvas (balle et cible).",
+      "Don't reprendre un logo, un nom ou un élément de marque d'un tournoi réel : l'esprit seulement.",
+      "Don't mettre de l'or sur blanc, ni du jaune ball ailleurs que sur la balle.",
+      "Don't utiliser le vert green pour signifier un succès : il désigne les cas d'école et les forces secondaires.",
+      "Don't revenir au tableau de bord gris à un accent, ni au papier millimétré neutre.",
+      "Don't mettre la serif sur des étiquettes de champ ou des boutons.",
+      "Don't laisser un dessin de relevé sans échelle chiffrée."
+    ]
+  }
+}

@@ -177,6 +177,23 @@ class Trajectory:
             "cl": self.ball.lift.cl(s),
         }
 
+    def accelerations(self) -> dict[str, np.ndarray]:
+        """Accélérations (m/s²) dues à la traînée et à Magnus, composantes (3, N).
+
+        Mêmes formules que le second membre de l'EDO, évaluées sur les échantillons :
+        c'est ce qui permet d'afficher les forces sans jamais refaire la physique ailleurs.
+        """
+        a = self.aero()
+        k = 0.5 * self.env.density * self.ball.area / self.ball.mass
+        wind = np.asarray(self.env.wind, dtype=float)[:, None]
+        u = self.velocity - wind
+        v = np.maximum(a["v_rel"], 1e-12)
+        drag = -k * a["cd"] * v * u
+        om = np.linalg.norm(self.omega, axis=0)
+        cross = np.cross(self.omega, u, axis=0)
+        magnus = k * a["cl"] * v / np.maximum(om, 1e-12) * cross
+        return {"drag": drag, "magnus": np.where(om > 1e-12, magnus, 0.0)}
+
 
 def _make_rhs(ball: Ball, env: Environment, drag: bool, magnus: bool, spin_decay: bool):
     """Second membre de l'EDO, écrit en flottants purs pour la vitesse."""

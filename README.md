@@ -9,7 +9,7 @@ Il intègre les équations du mouvement avec :
 - la portance de Magnus et la décroissance du spin ;
 - le vent et l'atmosphère standard.
 
-![Simulateur](docs/figures/capture_app.png)
+![Interface web](docs/figures/interface-web.jpg)
 
 ## Installation
 
@@ -22,10 +22,22 @@ pip install -e ".[dev]"
 ## Utilisation
 
 ```bash
-trajectoire                                   # simulateur interactif
+trajectoire-web                               # interface web (ouvre http://127.0.0.1:8765)
+trajectoire-web --port 9000 --no-browser      # autre port, sans ouvrir le navigateur
+trajectoire                                   # ancienne interface matplotlib
 trajectoire --scenario "Drive golf" --save capture.png   # image sans fenêtre
 trajectoire-etude                             # régénère les graphiques de docs/figures/
 ```
+
+## L'interface web
+
+Une page unique servie en local (bibliothèque standard Python, rien n'est exposé sur le réseau). La physique reste en Python : le navigateur ne fait que dessiner ce que l'API calcule.
+
+- **Direction visuelle « Centre Court »** : blanc, vert profond, violet, filets or et pelouse rayée, serif classique (Libre Caslon) pour les titres. Inspirée de l'univers du tennis de Wimbledon, sans reprendre aucun logo ni nom de marque. Polices embarquées, tout fonctionne hors ligne.
+- **Le relevé** est à l'échelle : un carreau vaut un nombre rond de mètres, et l'échelle verticale est écrite quand elle diffère de l'horizontale. La balle est marquée à intervalles de temps réguliers, ce qui montre le freinage.
+- **Comparaisons** : parabole sans air, même tir sans rotation, forces (poids, traînée, Magnus) à l'apogée.
+- **Accessibilité** : onglets et réglages au clavier, texte alternatif des tracés, résultats aussi en tableau, `prefers-reduced-motion` respecté.
+- **API** : `GET /api/meta`, `POST /api/simulate`, `/api/optimal`, `/api/target` (JSON), testée sur un vrai serveur.
 
 ## Le simulateur interactif
 
@@ -61,14 +73,15 @@ Re = |v_r|·d/ν        S = r·|ω|/|v_r|
 
 ## Validation
 
-28 tests, couverture 97 %. Ce qu'ils vérifient :
+51 tests, couverture 95 %. Ce qu'ils vérifient :
 - **Sans air** : temps de vol, portée et apogée identiques à la solution analytique (à 1e-7 près), angle optimal 45°.
 - **Magnus seul** : énergie mécanique conservée (la force est perpendiculaire à la vitesse).
 - **Traînée** : énergie strictement décroissante, angle optimal < 45°.
 - **Symétrie** : effets gauche et droite identiques ; spin toujours perpendiculaire à la vitesse.
 - **Atmosphère** : valeurs des tables ISA.
 - **Calibration** : drive type PGA Tour (74,6 m/s, 10,9°, 2 686 tr/min) → 239 m de carry (mesuré : ~251 m).
-- **Situations de jeu et interface**, testées sans fenêtre.
+- **Situations de jeu et interface matplotlib**, testées sans fenêtre.
+- **API web** : mêmes verdicts que Python, forces cohérentes avec les équations (différences finies), entrées bornées, erreurs en JSON, serveur qui ne sort pas de son dossier.
 
 ## Résultats de l'étude
 
