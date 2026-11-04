@@ -37,3 +37,6 @@ outputs/
 .impeccable/build/
 
 .impeccable/hook.cache.json
+
+# Exports générés (scripts Fusion, CSV) : à régénérer depuis l interface
+exports/

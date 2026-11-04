@@ -135,6 +135,17 @@ def _contacts(comp, app, plane, problems):
         problems.append("Contacts : " + traceback.format_exc(limit=1))
 
 
+def _new_component(design):
+    """Nouveau composant NAME. Un document de pièce n'en accepte qu'un : on travaille alors dans la racine."""
+    root = design.rootComponent
+    try:
+        comp = root.occurrences.addNewComponent(adsk.core.Matrix3D.create()).component
+        comp.name = NAME
+        return comp
+    except RuntimeError:
+        return root
+
+
 def run(context):
     ui = None
     try:
@@ -144,8 +155,7 @@ def run(context):
         if design is None:
             ui.messageBox("Ouvre ou crée d'abord un design Fusion, puis relance le script.")
             return
-        comp = design.rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create()).component
-        comp.name = NAME
+        comp = _new_component(design)
         y_up = _is_y_up(app)
         side = comp.xYConstructionPlane if y_up else comp.xZConstructionPlane  # avant et haut
         top = comp.xZConstructionPlane if y_up else comp.xYConstructionPlane  # avant et gauche

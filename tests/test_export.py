@@ -79,7 +79,7 @@ def test_fusion_zip_contains_a_valid_script_and_manifest():
     compile(z.read(py).decode("utf-8"), py, "exec")  # syntaxe valide
 
 
-def _fake_fusion(y_up: bool, parametric: bool):
+def _fake_fusion(y_up: bool, parametric: bool, part_document: bool = False):
     class P:
         def __init__(self, x, y, z=0.0):
             self.x, self.y, self.z = x, y, z
@@ -147,10 +147,17 @@ def _fake_fusion(y_up: bool, parametric: bool):
         features=SimpleNamespace(baseFeatures=SimpleNamespace(add=lambda: Base())),
     )
     occ = SimpleNamespace(component=comp)
-    design = SimpleNamespace(
-        designType="param" if parametric else "direct",
-        rootComponent=SimpleNamespace(occurrences=SimpleNamespace(addNewComponent=lambda m: occ)),
+
+    def refuse(_matrix):
+        raise RuntimeError(
+            "3 : Les documents de conception de pièces ne peuvent contenir qu'un seul composant."
+        )
+
+    comp.occurrences = SimpleNamespace(addNewComponent=refuse)
+    root = (
+        comp if part_document else SimpleNamespace(occurrences=SimpleNamespace(addNewComponent=lambda m: occ))
     )
+    design = SimpleNamespace(designType="param" if parametric else "direct", rootComponent=root)
     orientations = SimpleNamespace(YUpModelingOrientation="Y", ZUpModelingOrientation="Z")
     app = SimpleNamespace(
         userInterface=SimpleNamespace(messageBox=lambda text: log.messages.append(text)),
@@ -181,11 +188,11 @@ def _fake_fusion(y_up: bool, parametric: bool):
     return {"adsk": pkg, "adsk.core": core, "adsk.fusion": fusion}, log
 
 
-def _run_script(monkeypatch, y_up, parametric, **payload):
+def _run_script(monkeypatch, y_up, parametric, part_document=False, **payload):
     dl = api.run_export({"scenario": "Coup franc", "format": "fusion", **payload})
     z = zipfile.ZipFile(io.BytesIO(dl.data))
     source = z.read(next(n for n in z.namelist() if n.endswith(".py"))).decode("utf-8")
-    modules, log = _fake_fusion(y_up, parametric)
+    modules, log = _fake_fusion(y_up, parametric, part_document)
     for name, mod in modules.items():
         monkeypatch.setitem(sys.modules, name, mod)
     ns: dict = {}
@@ -278,3 +285,15 @@ def test_server_sends_csv_and_rejects_unknown_formats(base_url):
     assert data.decode().startswith("t_s,x_m,y_m,z_m,vitesse_m_s")
     status, _, data = _post_raw(base_url + "/api/export", {"format": "stl"})
     assert status == 400 and "stl" in json.loads(data)["error"]
+
+
+@pytest.mark.parametrize("parametric", [False, True], ids=["direct", "parametrique"])
+def test_part_document_with_a_single_component_still_works(monkeypatch, parametric):
+    """Régression vécue : une pièce Fusion refuse un 2e composant, on travaille dans la racine."""
+    ns, log = _run_script(monkeypatch, False, parametric, part_document=True)
+    assert "Échec" not in log.messages[-1], log.messages[-1]
+    assert len(log.bodies) == len(ns["MARKS"]) and [s.name for s in log.sketches] == [
+        "Profil",
+        "Dessus",
+        "Contacts",
+    ]
