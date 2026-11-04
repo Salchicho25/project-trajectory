@@ -5,6 +5,12 @@ Le plus récent en haut.
 
 ---
 
+## 2026-11-04 — Court de basket réaliste
+- Terrain aux cotes du règlement (28 × 15 m, 3 points à 6,75 m, raquette 5,8 × 4,9 m) peint en une texture de 2048 px, sur un matériau verni (clearcoat).
+- Panier complet : panneau de verre, carré de tir, cercle doré, filet en mailles losange, mât rembourré. La caméra « Arrivée » est décalée de 2,4 m pour ne pas être masquée par le mât.
+- Salle intérieure : lumières, tableau suspendu, bannières, tribunes ; `RoomEnvironment` ajouté à `vendor/`. Grain de cuir (bump) sur toutes les balles.
+- Vérifié : 5 situations sans erreur JS, qualité Standard OK, ruff/mypy/pytest verts.
+
 ## 2026-11-04 — Rendu 3D : ciel physique, post-traitement, herbe, décor sobre, corrections de la revue
 - Recherche de bibliothèques : `Sky` (addon three.js), `EffectComposer` + `UnrealBloomPass` + `OutputPass`, herbe instanciée avec vent dans le shader. Tout est copié en local (hors ligne), arborescence miroir de `examples/jsm`.
 - Non fait, faute de source fiable : de vrais modèles de joueurs (Quaternius ne propose qu'un lien Patreon, rien de CC0 prêt à télécharger pour les stades). Personnages procéduraux plus soignés à la place (bras croisés pour le mur, public en corps et têtes instanciés, carnations variées). Pas d'occlusion ambiante (GTAO) ni de profondeur de champ : les ombres suffisent pour l'instant.

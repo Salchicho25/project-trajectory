@@ -284,7 +284,7 @@ La vue 3D reste dans le monde « Centre Court » : aucun nouveau matériau, seul
 Chaque situation a un lieu, construit avec les seuls jetons existants (aucune couleur nouvelle en dehors de `--sky`).
 
 - **Football** : pelouse à bandes de 5,5 m, lignes de craie `--paper` aux cotes du règlement, mur de joueurs (maillot `--traj`, short `--paper`), but blanc avec filet translucide, tribunes sur trois côtés.
-- **Basket** : parquet dérivé de `--gold` assombri vers `--ink`, raquette en `--rail` éclairci vers `--green`, panneaux de bord de terrain en `--rail`, cercle `--gold` avec filet.
+- **Basket** : salle fermée, terrain aux cotes officielles (28 × 15 m) peint dans une texture de 64 px/m : lames de parquet teintées (`--gold` vers `--ink`), raquette et cercle central en `--rail`/`--green`, lignes `--paper` de 5 cm (3 points, lancers francs, zone restrictive), monogramme et lettrage dorés. Panier : verre cerclé d'acier, carré de tir, cercle `--gold` avec filet maillé, mât rembourré. Passerelle lumineuse, tableau suspendu, bannières vert et or, tribunes sur quatre côtés ; reflets de salle (RoomEnvironment), sans ciel ni nuages.
 - **Golf** : rough plus sombre (`--ink` mêlé), fairway de bandes de 10 m, bunkers `--paper` mêlé de `--gold`, fanions de distance `--traj`, arbres uniquement du côté opposé à la caméra de tribune.
 - **Baseball** : avant-champ en terre (`--gold` assombri), pelouse intérieure, bases `--paper`, piste d'avertissement, tribune derrière la palissade.
 - **Public** : cubes instanciés colorés avec `--paper`, `--gold`, `--traj`, `--traj-2`, `--green`, `--turf-b` : jamais de couleur hors palette.

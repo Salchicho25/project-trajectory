@@ -37,28 +37,6 @@ export function stripes(light, dark, band, length, alongZ = false) {
   return tex;
 }
 
-function parquet(kit) {
-  const cv = document.createElement("canvas");
-  cv.width = 256; cv.height = 256;
-  const g = cv.getContext("2d");
-  const a = kit.gold.clone().lerp(kit.ink, 0.30), b = kit.gold.clone().lerp(kit.ink, 0.40);
-  const r = rng(11);
-  for (let i = 0; i < 12; i++) {                       // 12 lames de 0,12 m
-    g.fillStyle = hex(a.clone().lerp(b, r() * 0.9));
-    g.fillRect(0, (i * 256) / 12, 256, 256 / 12);
-    g.fillStyle = hex(kit.ink); g.globalAlpha = 0.25;
-    g.fillRect(0, (i * 256) / 12, 256, 1.5);
-    g.globalAlpha = 1;
-    for (let j = 0; j < 3; j++) { g.fillStyle = hex(kit.ink); g.globalAlpha = 0.18; g.fillRect(r() * 256, (i * 256) / 12, 1.5, 256 / 12); g.globalAlpha = 1; }
-  }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(28 / 4, 15 / 1.44);
-  tex.anisotropy = 8;
-  return tex;
-}
-
 // ---------------------------------------------------------------- outils de dessin au sol
 class Painter {
   constructor(group, kit) {
@@ -230,29 +208,207 @@ function football(g, kit, geom, p) {
   return new Set(["mur"]);
 }
 
+// Terrain de basket aux cotes du règlement : 28 m x 15 m, dégagement de 2 m, panier à 3,05 m.
+const COURT = { x0: -22.2, x1: 5.8, hw: 7.5, border: 2 };
+const HOOP_X = 4.2;                                         // centre du cercle : 4,2 m de la ligne des lancers francs
+
+// Le terrain entier est peint dans UNE texture de 2048 x 1216 px (64 px par mètre) : lames de parquet, peinture,
+// toutes les lignes (cercle central, raquette, lancers francs, zone restrictive, ligne à 3 points) et l'emblème.
+function courtTexture(kit) {
+  const PPM = 64, W = (28 + 4) * PPM, H = (15 + 4) * PPM;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  const X = (x) => (x - (COURT.x0 - COURT.border)) * PPM;
+  const Y = (y) => (COURT.hw + COURT.border - y) * PPM;
+  const L = (m) => m * PPM;
+  const rand = rng(11);
+
+  // parquet : lames de 7,5 cm dans le sens de la longueur, teinte et veinage variables, joints décalés
+  const light = kit.gold.clone().lerp(kit.ink, 0.22), dark = kit.gold.clone().lerp(kit.ink, 0.38);
+  const plank = L(0.075);
+  for (let y = 0; y < H; y += plank) {
+    let x = -rand() * L(1.2);
+    while (x < W) {
+      const len = L(0.9 + rand() * 1.6);
+      g.fillStyle = hex(light.clone().lerp(dark, rand()));
+      g.fillRect(x, y, len, plank + 0.5);
+      g.globalAlpha = 0.13; g.strokeStyle = hex(kit.ink); g.lineWidth = 0.8;
+      for (let k = 0; k < 3; k++) {
+        const yy = y + rand() * plank;
+        g.beginPath(); g.moveTo(x, yy); g.lineTo(x + len, yy + (rand() - 0.5) * 2); g.stroke();
+      }
+      g.globalAlpha = 0.4; g.fillStyle = hex(kit.ink); g.fillRect(x, y, 1.2, plank);
+      g.globalAlpha = 1;
+      x += len;
+    }
+    g.globalAlpha = 0.22; g.fillStyle = hex(kit.ink); g.fillRect(0, y, W, 1); g.globalAlpha = 1;
+  }
+  // dégagement autour du terrain : bois plus sombre
+  g.globalAlpha = 0.34; g.fillStyle = hex(kit.ink);
+  g.fillRect(0, 0, W, L(COURT.border)); g.fillRect(0, H - L(COURT.border), W, L(COURT.border));
+  g.fillRect(0, 0, L(COURT.border), H); g.fillRect(W - L(COURT.border), 0, L(COURT.border), H);
+  g.globalAlpha = 1;
+
+  // peinture de la raquette et du cercle central : le grain du bois reste visible dessous
+  const paint = hex(kit.rail.clone().lerp(kit.green, 0.45));
+  g.fillStyle = paint; g.globalAlpha = 0.93;
+  g.fillRect(X(0), Y(2.45), L(5.8), L(4.9));
+  g.beginPath(); g.arc(X(-8.2), Y(0), L(1.8), 0, Math.PI * 2); g.fill();
+  g.globalAlpha = 1;
+
+  // lignes blanches de 5 cm
+  g.strokeStyle = hex(kit.paper); g.lineWidth = L(0.05); g.lineCap = "butt";
+  const arc = (cx, cy, r, a0, a1, dash = null) => {            // angles du simulateur (x avant, y gauche)
+    g.setLineDash(dash ?? []);
+    g.beginPath(); g.arc(X(cx), Y(cy), L(r), -a0, -a1, true); g.stroke();
+    g.setLineDash([]);
+  };
+  const seg = (x0, y0, x1, y1) => { g.beginPath(); g.moveTo(X(x0), Y(y0)); g.lineTo(X(x1), Y(y1)); g.stroke(); };
+  g.strokeRect(X(COURT.x0), Y(COURT.hw), L(28), L(15));        // limites du terrain
+  seg(-8.2, -7.5, -8.2, 7.5);                                  // ligne médiane
+  arc(-8.2, 0, 1.8, 0, Math.PI * 2);                           // cercle central
+  g.strokeRect(X(0), Y(2.45), L(5.8), L(4.9));                 // raquette et ligne des lancers francs
+  arc(0, 0, 1.8, Math.PI / 2, (3 * Math.PI) / 2);              // cercle des lancers francs, trait plein côté terrain
+  arc(0, 0, 1.8, -Math.PI / 2, Math.PI / 2, [L(0.3), L(0.3)]); // et en pointillés côté raquette
+  arc(HOOP_X, 0, 1.25, Math.PI / 2, (3 * Math.PI) / 2);        // zone restrictive sous le panier
+  seg(HOOP_X, -1.25, 5.8, -1.25); seg(HOOP_X, 1.25, 5.8, 1.25);
+  const a3 = Math.asin(6.6 / 6.75);                            // ligne à 3 points : 6,75 m, lignes de coin à 6,6 m
+  arc(HOOP_X, 0, 6.75, Math.PI - a3, Math.PI + a3);
+  const cx3 = HOOP_X + 6.75 * Math.cos(Math.PI - a3);
+  seg(5.8, -6.6, cx3, -6.6); seg(5.8, 6.6, cx3, 6.6);
+  for (const x of [1.0, 1.6, 2.6, 3.6]) { seg(x, 2.45, x, 2.7); seg(x, -2.45, x, -2.7); }   // repères de la raquette
+
+  // emblème central (monogramme du projet) et lettrage hors limites
+  g.fillStyle = hex(kit.gold); g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = `400 ${L(2.1)}px "Libre Caslon Display", Georgia, serif`;
+  g.fillText("T", X(-8.2), Y(0) + L(0.08));
+  g.globalAlpha = 0.9;
+  g.font = `400 ${L(0.8)}px "Libre Caslon Display", Georgia, serif`;
+  g.save(); g.translate(X(5.8 + 1), Y(0)); g.rotate(Math.PI / 2); g.fillText("TRAJECTOIRE", 0, 0); g.restore();
+  g.save(); g.translate(X(-22.2 - 1), Y(0)); g.rotate(-Math.PI / 2); g.fillText("TRAJECTOIRE", 0, 0); g.restore();
+  g.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 16;
+  return tex;
+}
+
+// Panneau d'affichage suspendu : texte doré sur le vert du bandeau
+function boardTexture(kit, lines) {
+  const cv = document.createElement("canvas");
+  cv.width = 512; cv.height = 256;
+  const g = cv.getContext("2d");
+  g.fillStyle = hex(kit.rail); g.fillRect(0, 0, 512, 256);
+  g.strokeStyle = hex(kit.gold); g.lineWidth = 6; g.strokeRect(10, 10, 492, 236);
+  g.fillStyle = hex(kit.gold); g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = '400 54px "Libre Caslon Display", Georgia, serif';
+  g.fillText(lines[0], 256, 80);
+  g.font = '700 110px "Libre Caslon Text", Georgia, serif';
+  g.fillText(lines[1], 256, 172);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Panier : panneau de verre cerclé d'acier, carré de tir, rembourrage, cercle avec son attache, filet maillé, armature.
+function hoopAssembly(g, kit, hoop, board) {
+  const bx = board.x, hx = hoop.x, hr = hoop.r, hz = hoop.z, bz0 = board.z0, bz1 = board.z1, bh = bz1 - bz0;
+  const steel = mat(kit.ink.clone().lerp(kit.paper, 0.18), { metalness: 0.7, roughness: 0.38 });
+  const white = mat(kit.paper, { roughness: 0.5 });
+  const put = (m, x, y, z) => { m.position.copy(P(x, y, z)); m.castShadow = true; g.add(m); return m; };
+
+  put(new THREE.Mesh(                                                         // verre : 1,80 m x 1,05 m
+    new THREE.BoxGeometry(0.03, bh, 1.8),
+    new THREE.MeshPhysicalMaterial({ color: kit.paper, transparent: true, opacity: 0.22, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03, depthWrite: false }),
+  ), bx, 0, (bz0 + bz1) / 2);
+  for (const dz of [-bh / 2, bh / 2]) put(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 1.84), steel), bx, 0, (bz0 + bz1) / 2 + dz);
+  for (const dy of [-0.9, 0.9]) put(new THREE.Mesh(new THREE.BoxGeometry(0.06, bh, 0.05), steel), bx, dy, (bz0 + bz1) / 2);
+  const padded = mat(kit.rail.clone().lerp(kit.green, 0.35), { roughness: 0.9 });
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 1.86), padded), bx, 0, bz0 - 0.04);   // rembourrage du bord bas
+
+  const line = (w, h, y, z) => put(new THREE.Mesh(new THREE.BoxGeometry(0.012, h, w), white), bx - 0.022, y, z);
+  const sqW = 0.59, sqH = 0.45, sqZ = hz + sqH / 2 - 0.02;                    // carré de tir : 59 cm x 45 cm, base au niveau du cercle
+  line(sqW, 0.015, 0, sqZ - sqH / 2); line(sqW, 0.015, 0, sqZ + sqH / 2);
+  line(0.015, sqH, -sqW / 2, sqZ); line(0.015, sqH, sqW / 2, sqZ);
+
+  const rimMat = mat(kit.gold, { metalness: 0.75, roughness: 0.28 });         // cercle en laiton doré
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(hr, 0.009, 14, 64), rimMat);
+  rim.rotation.x = Math.PI / 2; put(rim, hx, 0, hz);
+  put(new THREE.Mesh(new THREE.BoxGeometry(bx - (hx + hr) + 0.04, 0.03, 0.14), rimMat), (bx + hx + hr) / 2, 0, hz);   // attache
+
+  const net = [], N = 14, SEG = 8, LEN = 0.42;                                // filet : deux hélices opposées = mailles en losange
+  for (const dir of [1, -1]) {
+    for (let i = 0; i < N; i++) {
+      let prev = null;
+      for (let k = 0; k <= SEG; k++) {
+        const f = k / SEG, a = (i / N) * Math.PI * 2 + dir * f * 0.95, r = hr * (1 - 0.38 * f);
+        const q = P(hx + Math.cos(a) * r, Math.sin(a) * r, hz - f * LEN);
+        if (prev) net.push(prev, q);
+        prev = q;
+      }
+    }
+  }
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(net), new THREE.LineBasicMaterial({ color: kit.paper, transparent: true, opacity: 0.92 })));
+
+  const poleX = COURT.x1 + 1.3, poleH = hz + 0.7;                             // armature : mât derrière la ligne de fond, bras jusqu'au panneau
+  put(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, poleH, 20), steel), poleX, 0, poleH / 2);
+  put(new THREE.Mesh(new THREE.BoxGeometry(poleX - bx, 0.16, 0.22), steel), (poleX + bx) / 2, 0, bz1 - 0.2);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.62, 2.1, 0.9), padded), poleX, 0, 1.05);   // protection rembourrée au pied du mât
+}
+
+// La salle : murs sombres, passerelle d'éclairage lumineuse, tableau suspendu, bannières, tribunes tout autour
+function arena(g, kit) {
+  const wall = mat(kit.rail.clone().lerp(kit.ink, 0.6), { roughness: 0.95, side: THREE.BackSide });
+  const room = new THREE.Mesh(new THREE.BoxGeometry(76, 20, 60), wall);
+  room.position.copy(P(-9, 0, 10)); g.add(room);
+
+  const glow = new THREE.MeshBasicMaterial({ color: kit.paper.clone().multiplyScalar(4) });       // valeurs > 1 : le halo (bloom) les fait briller
+  for (const y of [-10.5, -6.3, -2.1, 2.1, 6.3, 10.5]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(22, 0.22, 0.55), glow);
+    bar.position.copy(P(-8.2, y, 16.2)); g.add(bar);
+  }
+  const rig = mat(kit.ink, { metalness: 0.6, roughness: 0.5 });
+  for (const x of [-18, -8.2, 2]) {
+    const truss = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 26), rig);
+    truss.position.copy(P(x, 0, 16.6)); g.add(truss);
+  }
+
+  const faces = [boardTexture(kit, ["TRAJECTOIRE", "24"]), boardTexture(kit, ["DOMICILE", "00"]), boardTexture(kit, ["TRAJECTOIRE", "24"]), boardTexture(kit, ["VISITEURS", "00"])];
+  const mats = [0, 1, 2, 3].map((i) => new THREE.MeshStandardMaterial({ map: faces[i], emissive: kit.rail, emissiveMap: faces[i], emissiveIntensity: 0.9, roughness: 0.6 }));
+  const cube = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.0, 3.6), [mats[0], mats[2], new THREE.MeshStandardMaterial({ color: kit.ink }), new THREE.MeshStandardMaterial({ color: kit.ink }), mats[1], mats[3]]);
+  cube.position.copy(P(-8.2, 0, 11.4)); cube.castShadow = true; g.add(cube);
+  for (const [dx, dy] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) {
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 4.6, 6), rig);
+    cable.position.copy(P(-8.2 + dx, dy, 13.9)); g.add(cable);
+  }
+
+  const banner = (x, y, rot, i) => {                                           // bannières suspendues : vert et or, jamais de violet
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 2.6), new THREE.MeshStandardMaterial({ color: i % 2 ? kit.rail : kit.gold.clone().lerp(kit.ink, 0.25), roughness: 0.8, side: THREE.DoubleSide }));
+    m.position.copy(P(x, y, 10.5)); m.rotation.y = rot; g.add(m);
+  };
+  for (let i = 0; i < 6; i++) { banner(-30 + i * 6.4, -27.8, 0, i); banner(-30 + i * 6.4, 27.8, Math.PI, i + 1); }
+  stand(g, kit, { cx: -8, cy: -11, away: -Math.PI / 2, len: 40, rows: 8, seed: 8, gap: 1 });
+  stand(g, kit, { cx: -8, cy: 11, away: Math.PI / 2, len: 40, rows: 8, seed: 9, gap: 1 });
+  stand(g, kit, { cx: 11, cy: 0, away: 0, len: 22, rows: 6, seed: 10, gap: 1 });
+  stand(g, kit, { cx: -28, cy: 0, away: Math.PI, len: 22, rows: 6, seed: 13, gap: 1 });
+}
+
 function basketball(g, kit, geom, p) {
-  const wood = new THREE.MeshStandardMaterial({ map: parquet(kit), roughness: 0.45, metalness: 0.05 });
-  p.plane(-8.2, 0, 28, 15, wood, 0, 0.004);                       // le terrain : 28 m x 15 m
-  const key = mat(kit.rail.clone().lerp(kit.green, 0.45), { roughness: 0.6 });
-  p.plane(2.9, 0, 5.8, 4.9, key, 0, 0.007);                       // raquette
-  p.rect(0, -2.45, 5.8, 2.45);
-  p.disc(0, 0, 1.8, p.chalk, 0.0075).visible = false;
-  p.arc(0, 0, 1.8, -Math.PI / 2, Math.PI);                        // cercle des lancers francs
-  p.arc(4.2, 0, 6.75, 1.78, 2.72);                                // ligne à 3 points
-  p.line(5.8, -6.6, 2.78, -6.6); p.line(5.8, 6.6, 2.78, 6.6);
-  p.line(5.8, -7.5, -22.2, -7.5); p.line(5.8, 7.5, -22.2, 7.5);   // lignes de touche
-  p.line(5.8, -7.5, 5.8, 7.5); p.line(-22.2, -7.5, -22.2, 7.5);
-  p.line(-8.2, -7.5, -8.2, 7.5);                                  // ligne médiane
-  p.arc(-8.2, 0, 1.8, 0, Math.PI * 2);
-  const boards = mat(kit.rail, { roughness: 0.6 });
-  for (const y of [-8.4, 8.4]) {                                  // panneaux de bord de terrain
+  const floor = new THREE.MeshPhysicalMaterial({ map: courtTexture(kit), roughness: 0.34, clearcoat: 0.75, clearcoatRoughness: 0.12, metalness: 0.02 });
+  p.plane((COURT.x0 + COURT.x1) / 2, 0, 28 + 4, 15 + 4, floor, 0, 0.004);
+  const boards = mat(kit.rail, { roughness: 0.55 });
+  for (const y of [-8.5, 8.5]) {                                               // panneaux publicitaires de bord de terrain, vert et or
     const b = new THREE.Mesh(new THREE.BoxGeometry(28, 0.9, 0.12), boards);
     b.position.copy(P(-8.2, y, 0.45)); b.castShadow = b.receiveShadow = true; g.add(b);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(28, 0.06, 0.125), mat(kit.gold, { metalness: 0.5, roughness: 0.4 }));
+    strip.position.copy(P(-8.2, y, 0.93)); g.add(strip);
   }
-  stand(g, kit, { cx: -8, cy: -11, away: -Math.PI / 2, len: 40, rows: 6, seed: 8, gap: 1 });
-  stand(g, kit, { cx: -8, cy: 11, away: Math.PI / 2, len: 40, rows: 6, seed: 9, gap: 1 });
-  stand(g, kit, { cx: 11, cy: 0, away: 0, len: 22, rows: 5, seed: 10, gap: 1 });
-  return new Set();
+  const hoop = geom.side.find((sh) => sh.kind === "hoop"), board = geom.side.find((sh) => sh.label === "planche");
+  if (hoop && board) hoopAssembly(g, kit, hoop, board);
+  arena(g, kit);
+  return { handles: new Set(["planche", "cercle"]), indoor: true };
 }
 
 function golf(g, kit, geom, p, d) {
@@ -317,7 +473,7 @@ export function groundSpec(name, kit, d) {
       light: d.light.clone().lerp(kit.paper, 0.06), dark: d.dark.clone().lerp(kit.paper, 0.04),
       origin: d.xmax * 0.55 + 20 - (d.xmax * 1.5 + 80) / 2, half: 23,
     };
-  } else if (name === "Lancer franc") Object.assign(spec, { band: 2, length: 140, width: 110, x0: -10 });
+  } else if (name === "Lancer franc") Object.assign(spec, { indoor: true, length: 90, width: 70, x0: -8, floor: kit.rail.clone().lerp(kit.ink, 0.62) });
   else spec.grass = true;
   return spec;
 }
@@ -325,9 +481,11 @@ export function groundSpec(name, kit, d) {
 export function buildEnvironment(name, geom, kit, dims) {
   const group = new THREE.Group();
   const painter = new Painter(group, kit);
-  const handles = (BUILDERS[name] ?? training)(group, kit, geom, painter, dims);
-  skyline(group, kit, dims.xmax * 0.5, dims.ext);
-  return { group, handles, update() {} };
+  const built = (BUILDERS[name] ?? training)(group, kit, geom, painter, dims);
+  const handles = built instanceof Set ? built : built.handles;
+  const indoor = !(built instanceof Set) && built.indoor === true;
+  if (!indoor) skyline(group, kit, dims.xmax * 0.5, dims.ext);               // dehors seulement : arbres et haies
+  return { group, handles, indoor, update() {} };
 }
 
 // ---------------------------------------------------------------- nuages

@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/OrbitControls.js";
 import { Sky } from "three/addons/objects/Sky.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -92,6 +93,24 @@ function speckle(g, color, n, alpha, r = 1.4) {
   g.globalAlpha = 1;
 }
 
+// grain du revêtement (cuir grenu, feutre, alvéoles) : relief fin en bump map, partagé par toutes les balles
+let bumpTex = null;
+function ballBump() {
+  if (bumpTex) return bumpTex;
+  const cv = document.createElement("canvas");
+  cv.width = 512; cv.height = 256;
+  const g = cv.getContext("2d");
+  g.fillStyle = "rgb(128,128,128)"; g.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 9000; i++) {
+    const v = 90 + Math.random() * 90;
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.beginPath(); g.arc(Math.random() * 512, Math.random() * 256, 0.9 + Math.random() * 1.3, 0, 7); g.fill();
+  }
+  bumpTex = new THREE.CanvasTexture(cv);
+  bumpTex.wrapS = THREE.RepeatWrapping;
+  return bumpTex;
+}
+
 function ballTexture(key, kit) {
   const cv = document.createElement("canvas");
   cv.width = 512; cv.height = 256;
@@ -146,7 +165,8 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     u.sunPosition.value.copy(SUN_DIR);
   }
   scene.add(sky);
-  scene.add(new THREE.HemisphereLight(kit.sky, lawn()[1], 0.85));
+  const hemi = new THREE.HemisphereLight(kit.sky, lawn()[1], 0.85);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(kit.paper, 2.1);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -191,6 +211,22 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   }
 
   // ---------------------------------------------------------------- décor statique
+  // dehors : ciel physique et soleil ; dedans : pas de ciel, projecteurs doux et reflets de salle (RoomEnvironment) sur le parquet, le verre et le cercle
+  let roomEnv = null;
+  function setAtmosphere(indoor) {
+    sky.visible = !indoor;
+    if (indoor && !roomEnv) {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+    }
+    scene.environment = indoor ? roomEnv : null;
+    hemi.intensity = indoor ? 0.2 : 0.85;
+    sun.intensity = indoor ? 1.5 : 2.1;
+    sun.color.copy(indoor ? kit.paper.clone().lerp(kit.gold, 0.12) : kit.paper);
+    renderer.toneMappingExposure = indoor ? 0.8 : 0.9;
+  }
+
   function disposeGroup(g) {
     g.traverse((o) => {
       o.geometry?.dispose?.();
@@ -259,15 +295,19 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     const band = spec.band ?? (length > 260 ? 10 : length > 140 ? 5 : 2.5);
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(length, width),
-      new THREE.MeshStandardMaterial({ map: stripes(spec.light, spec.dark, band, length), roughness: 1 }),
+      spec.indoor
+        ? new THREE.MeshStandardMaterial({ color: spec.floor, roughness: 0.55 })               // sol de la salle
+        : new THREE.MeshStandardMaterial({ map: stripes(spec.light, spec.dark, band, length), roughness: 1 }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(spec.x0 ?? length / 2 - 40, 0, 0);
     ground.receiveShadow = true;
     world.add(ground);
-    const far = new THREE.Mesh(new THREE.CircleGeometry(3500, 48), new THREE.MeshStandardMaterial({ color: dark, roughness: 1 }));
-    far.rotation.x = -Math.PI / 2; far.position.y = -0.04;           // terre au-delà du terrain, fondue dans le brouillard
-    world.add(far);
+    if (!spec.indoor) {
+      const far = new THREE.Mesh(new THREE.CircleGeometry(3500, 48), new THREE.MeshStandardMaterial({ color: dark, roughness: 1 }));
+      far.rotation.x = -Math.PI / 2; far.position.y = -0.04;           // terre au-delà du terrain, fondue dans le brouillard
+      world.add(far);
+    }
     const env = buildEnvironment(d.scenario, d.geometry, kit, { xmax, ext, light, dark });
     world.add(env.group);
     world.add(buildScenery(d.geometry, env.handles));
@@ -276,13 +316,14 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
       : null;
     if (grass) { world.add(grass.group); grass.group.visible = quality === "high"; }
     const cloudsFx = clouds(kit, xmax * 0.5);
-    world.add(cloudsFx.group);
+    if (!env.indoor) world.add(cloudsFx.group);
+    setAtmosphere(env.indoor);
     envUpdate = (dt, now, anim) => {
       env.update(dt);
       if (anim) cloudsFx.update(dt);
       grass?.update(camera, now, anim, windVec.length());
     };
-    scene.fog = new THREE.Fog(horizon, ext * 1.6 + 60, ext * 6 + 500);
+    scene.fog = env.indoor ? new THREE.Fog(kit.rail.clone().lerp(kit.ink, 0.6), 50, 150) : new THREE.Fog(horizon, ext * 1.6 + 60, ext * 6 + 500);
   }
   const ymaxAbs = () => py.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
 
@@ -324,7 +365,10 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
     // balle : sphère texturée, orientation intégrée à partir de la rotation calculée par Python
     if (ballKey !== d.ball.key) { ballTex?.dispose?.(); ballTex = ballTexture(d.ball.key, kitHex()); ballKey = d.ball.key; }
-    ballMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.62 }));
+    ballMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 48, 32),
+      new THREE.MeshStandardMaterial({ map: ballTex, bumpMap: ballBump(), bumpScale: d.ball.key === "golf" ? 1.4 : 0.55, roughness: 0.62 }),
+    );
     ballMesh.scale.setScalar(vr);
     ballMesh.castShadow = true;
     ballGroup = new THREE.Group();
@@ -455,7 +499,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     }
     if (name === "arrivee") {
       return {
-        pos: P(xend + Math.max(6, ext * 0.16), -(py[py.length - 1] || 0) * 0.5 + 0.0, 1.5 + Math.min(4, zmax * 0.15)),
+        pos: P(xend + Math.max(6, ext * 0.16), -(py[py.length - 1] || 0) * 0.5 - 2.4, 1.5 + Math.min(4, zmax * 0.15)),
         target: P(xend * 0.42, 0, Math.max(zmax * 0.45, 1.2)),
       };
     }
