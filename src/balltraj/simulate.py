@@ -20,6 +20,7 @@ from scipy.optimize import brentq
 
 from .atmosphere import Environment
 from .balls import Ball
+from .impact import SURFACES, Impact, Surface, bounce
 
 RPM_TO_RAD_S = 2.0 * math.pi / 60.0
 
@@ -70,8 +71,24 @@ class Launch:
 
 
 @dataclass
+class Segment:
+    """Un tronçon continu de la trajectoire (un vol ou le roulé), sur [t0, t1].
+
+    `fn(tau)` renvoie l'état (9,) à l'instant relatif tau = t - t0.
+    """
+
+    t0: float
+    t1: float
+    fn: Callable[[float], np.ndarray]
+
+
+@dataclass
 class Trajectory:
-    """Résultat d'une simulation. `states` a la forme (9, N) : x y z vx vy vz ωx ωy ωz."""
+    """Résultat d'une simulation. `states` a la forme (9, N) : x y z vx vy vz ωx ωy ωz.
+
+    Avec des rebonds, `t` et `states` enchaînent tous les tronçons (vols puis roulé) ;
+    `impacts` liste les contacts avec le sol et `roll_distance` la distance roulée (m).
+    """
 
     ball: Ball
     launch: Launch
@@ -80,7 +97,9 @@ class Trajectory:
     states: np.ndarray
     landed: bool
     apex_time: float
-    _dense: Callable[[float], np.ndarray] | None = field(default=None, repr=False)
+    segments: list[Segment] = field(default_factory=list, repr=False)
+    impacts: list[Impact] = field(default_factory=list)
+    roll_distance: float = 0.0
 
     # --- accès pratiques -------------------------------------------------
     x = property(lambda self: self.states[0])
@@ -95,9 +114,13 @@ class Trajectory:
 
     def at(self, t: float) -> np.ndarray:
         """État (9,) à l'instant t, par la sortie dense de l'intégrateur."""
-        if self._dense is None:
+        if not self.segments:
             return self.states[:, -1]
-        return self._dense(t)
+        for seg in self.segments:
+            if t <= seg.t1:
+                return np.asarray(seg.fn(max(t, seg.t0) - seg.t0))
+        last = self.segments[-1]
+        return np.asarray(last.fn(last.t1 - last.t0))
 
     # --- grandeurs de synthèse --------------------------------------------
     @property
@@ -110,8 +133,15 @@ class Trajectory:
 
     @property
     def carry(self) -> float:
-        """Distance parcourue selon x au point de chute (m)."""
-        return float(self.end[0])
+        """Distance parcourue selon x au premier contact avec le sol (m)."""
+        return float(self.impacts[0].x if self.impacts else self.end[0])
+
+    @property
+    def carry_distance(self) -> float:
+        """Distance horizontale au premier contact (m) : le « carry » du golf."""
+        if not self.impacts:
+            return self.distance
+        return float(math.hypot(self.impacts[0].x, self.impacts[0].y))
 
     @property
     def lateral(self) -> float:
@@ -120,7 +150,7 @@ class Trajectory:
 
     @property
     def distance(self) -> float:
-        """Distance horizontale entre le départ et le point de chute (m)."""
+        """Distance horizontale entre le départ et l'arrêt (ou le dernier contact) (m)."""
         return float(math.hypot(self.end[0], self.end[1]))
 
     @property
@@ -129,12 +159,13 @@ class Trajectory:
 
     @property
     def impact_speed(self) -> float:
-        return float(np.linalg.norm(self.end[3:6]))
+        """Vitesse au premier contact (m/s)."""
+        return float(self.impacts[0].speed_in if self.impacts else np.linalg.norm(self.end[3:6]))
 
     @property
     def impact_angle(self) -> float:
-        """Angle de descente au point de chute (°, négatif)."""
-        vx, vy, vz = self.end[3:6]
+        """Angle de descente au premier contact (°, négatif)."""
+        vx, vy, vz = self.impacts[0].v_in if self.impacts else self.end[3:6]
         return math.degrees(math.atan2(vz, math.hypot(vx, vy)))
 
     # --- passages à une position donnée --------------------------------------
@@ -230,6 +261,32 @@ def _make_rhs(ball: Ball, env: Environment, drag: bool, magnus: bool, spin_decay
     return rhs
 
 
+def _vec3(a: np.ndarray) -> tuple[float, float, float]:
+    return (float(a[0]), float(a[1]), float(a[2]))
+
+
+def _roll_segment(ball: Ball, env: Environment, t0: float, ground: float, post: np.ndarray) -> Segment | None:
+    """Roulé après le dernier contact : décélération constante = résistance de roulement × g."""
+    vx, vy = float(post[3]), float(post[4])
+    vh = math.hypot(vx, vy)
+    if vh < 0.05:
+        return None
+    dx, dy = vx / vh, vy / vh
+    a = ball.roll_resistance * env.gravity
+    ts = vh / a
+    x0, y0, r = float(post[0]), float(post[1]), ball.radius
+
+    def fn(tau: float) -> np.ndarray:
+        tau = min(max(tau, 0.0), ts)
+        d = vh * tau - 0.5 * a * tau * tau
+        sp = max(vh - a * tau, 0.0)
+        return np.array(
+            [x0 + dx * d, y0 + dy * d, ground, dx * sp, dy * sp, 0.0, -dy * sp / r, dx * sp / r, 0.0]
+        )
+
+    return Segment(t0, t0 + ts, fn)
+
+
 def simulate(
     ball: Ball,
     launch: Launch,
@@ -243,13 +300,24 @@ def simulate(
     n_samples: int = 400,
     rtol: float = 1e-8,
     atol: float = 1e-9,
+    bounces: int = 0,
+    surface: str | Surface = "dur",
+    roll: bool = False,
+    rest_speed: float = 0.5,
 ) -> Trajectory:
-    """Simule le vol jusqu'au contact avec le sol (z = ground) ou jusqu'à t_max."""
+    """Simule le vol jusqu'au sol (z = ground), avec rebonds et roulé en option.
+
+    bounces     : nombre de rebonds que la balle effectue (0 : arrêt au premier contact)
+    surface     : sol (« dur », « gazon », « terre ») ou un objet Surface
+    roll        : si vrai, la balle roule après le dernier contact jusqu'à l'arrêt
+    rest_speed  : en dessous de cette vitesse verticale après un impact, la balle ne rebondit plus
+    """
     env = env or Environment()
+    surf = SURFACES[surface] if isinstance(surface, str) else surface
     s0 = np.concatenate([[0.0, 0.0, launch.height], launch.velocity(), launch.spin_vector()])
 
     if launch.height <= ground and s0[5] <= 0.0:  # tir vers le sol depuis le sol
-        return Trajectory(ball, launch, env, np.array([0.0]), s0[:, None], True, 0.0, None)
+        return Trajectory(ball, launch, env, np.array([0.0]), s0[:, None], True, 0.0)
 
     def hit_ground(_t, s):
         return s[2] - ground
@@ -261,28 +329,71 @@ def simulate(
     setattr(hit_ground, "terminal", True)  # noqa: B010
     setattr(hit_ground, "direction", -1)  # noqa: B010
     setattr(apex, "direction", -1)  # noqa: B010
+    rhs = _make_rhs(ball, env, drag, magnus, spin_decay)
 
-    sol = solve_ivp(
-        _make_rhs(ball, env, drag, magnus, spin_decay),
-        (0.0, t_max),
-        s0,
-        method="DOP853",
-        events=(hit_ground, apex),
-        dense_output=True,
-        rtol=rtol,
-        atol=atol,
-    )
-    if sol.status == -1:
-        raise RuntimeError(f"Échec de l'intégration : {sol.message}")
+    segments: list[Segment] = []
+    impacts: list[Impact] = []
+    state, t_off = s0, 0.0
+    apex_time: float | None = None
+    final_state = s0
+    landed = False
+    for k in range(max(0, bounces) + 1):
+        sol = solve_ivp(
+            rhs,
+            (0.0, max(t_max - t_off, 1e-6)),
+            state,
+            method="DOP853",
+            events=(hit_ground, apex),
+            dense_output=True,
+            rtol=rtol,
+            atol=atol,
+        )
+        if sol.status == -1:
+            raise RuntimeError(f"Échec de l'intégration : {sol.message}")
+        landed = sol.t_events[0].size > 0
+        t_end = float(sol.t_events[0][0]) if landed else float(sol.t[-1])
+        final_state = np.array(sol.y_events[0][0] if landed else sol.y[:, -1])
+        if k == 0 and sol.t_events[1].size:
+            apex_time = float(sol.t_events[1][0])
+        segments.append(Segment(t_off, t_off + t_end, sol.sol))
+        if not landed:
+            break
 
-    landed = sol.t_events[0].size > 0
-    t_end = float(sol.t_events[0][0]) if landed else float(sol.t[-1])
-    t = np.linspace(0.0, t_end, n_samples)
-    states = sol.sol(t)
-    if landed:
-        states[:, -1] = sol.y_events[0][0]
-    apex_time = float(sol.t_events[1][0]) if sol.t_events[1].size else float(t[np.argmax(states[2])])
-    return Trajectory(ball, launch, env, t, states, landed, apex_time, sol.sol)
+        v_out, w_out, sliding = bounce(ball, surf, final_state[3:6], final_state[6:9])
+        impacts.append(
+            Impact(
+                t_off + t_end,
+                float(final_state[0]),
+                float(final_state[1]),
+                _vec3(final_state[3:6]),
+                _vec3(v_out),
+                sliding,
+            )
+        )
+        post = final_state.copy()
+        post[2], post[3:6], post[6:9] = ground, v_out, w_out
+        t_off += t_end
+        if k == bounces or v_out[2] < rest_speed:
+            if roll:
+                seg = _roll_segment(ball, env, t_off, ground, post)
+                if seg is not None:
+                    segments.append(seg)
+                    final_state = seg.fn(seg.t1 - seg.t0)
+            break
+        state = post
+
+    t_total = segments[-1].t1
+    t = np.linspace(0.0, t_total, n_samples)
+    traj = Trajectory(ball, launch, env, t, np.empty((9, 0)), bool(impacts), 0.0, segments, impacts)
+    traj.states = np.column_stack([traj.at(float(tt)) for tt in t])
+    traj.states[:, -1] = final_state
+    if apex_time is None:
+        first = t <= segments[0].t1
+        apex_time = float(t[first][np.argmax(traj.states[2][first])])
+    traj.apex_time = apex_time
+    if roll and len(segments) > 1 and impacts:
+        traj.roll_distance = float(math.hypot(final_state[0] - impacts[-1].x, final_state[1] - impacts[-1].y))
+    return traj
 
 
 def vacuum_trajectory(launch: Launch, gravity: float = 9.80665, ground: float = 0.0, n: int = 200):

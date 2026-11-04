@@ -29,6 +29,7 @@ POST_ROUTES = {
     "/api/simulate": api.run_simulation,
     "/api/optimal": api.run_optimal,
     "/api/target": api.run_target,
+    "/api/export": api.run_export,
 }
 
 
@@ -38,12 +39,16 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # silence : pas de bruit dans le terminal
         pass
 
-    def _send(self, status: int, body: bytes, content_type: str) -> None:
+    def _send(
+        self, status: int, body: bytes, content_type: str, headers: dict[str, str] | None = None
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-cache")
         self.send_header("X-Content-Type-Options", "nosniff")
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -83,7 +88,12 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(payload, dict):
                 raise api.ApiError("le corps doit être un objet JSON")
-            self._json(HTTPStatus.OK, handler(payload))
+            out = handler(payload)
+            if isinstance(out, api.Download):
+                disposition = {"Content-Disposition": f'attachment; filename="{out.filename}"'}
+                self._send(HTTPStatus.OK, out.data, out.mime, disposition)
+            else:
+                self._json(HTTPStatus.OK, out)
         except (api.ApiError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
         except Exception as exc:  # calcul impossible : on le dit au lieu de couper la connexion

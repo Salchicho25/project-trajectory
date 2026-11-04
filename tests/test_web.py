@@ -21,12 +21,12 @@ def test_meta_lists_everything_the_ui_needs():
     m = api.meta()
     assert {c["key"] for c in m["controls"]} == {
         "speed", "elevation", "azimuth", "height", "spin_rpm", "spin_tilt",
-        "wind_x", "wind_y", "altitude", "temperature",
+        "wind_x", "wind_y", "altitude", "temperature", "bounces",
     }  # fmt: skip
     assert [s["name"] for s in m["scenarios"]] == list(SCENARIOS)
     assert {b["key"] for b in m["balls"]} == set(BALLS)
     for sc in m["scenarios"]:
-        assert set(sc["values"]) == {c["key"] for c in m["controls"]}
+        assert set(sc["values"]) == {c["key"] for c in m["controls"]} | {"roll", "surface"}
     json.dumps(m)  # sérialisable
 
 
@@ -34,7 +34,9 @@ def test_meta_lists_everything_the_ui_needs():
 def test_simulation_matches_the_python_verdict(name):
     sc = SCENARIOS[name]
     out = api.run_simulation({"scenario": name})
-    tr = simulate(BALLS[sc.ball], sc.launch, rtol=1e-7, n_samples=api.N_SAMPLES)
+    contact = api._parse({"scenario": name})[4]
+    n = api.N_SAMPLES_BOUNCING if contact["bounces"] or contact["roll"] else api.N_SAMPLES
+    tr = simulate(BALLS[sc.ball], sc.launch, rtol=1e-7, n_samples=n, **contact)
     assert out["verdict"]["text"] == sc.verdict(tr)
     assert out["summary"]["distance"] == pytest.approx(tr.distance, abs=1e-3)
     n = len(out["samples"]["t"])
