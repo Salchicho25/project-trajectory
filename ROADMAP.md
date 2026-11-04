@@ -14,7 +14,7 @@ Les tâches détaillées vivent dans les issues GitHub, une par tâche, rattach�
 - [x] Qualité : ruff (lint + format), mypy, pytest + couverture (≥ 90 %)
 - [x] CI GitHub Actions (Python 3.11 et 3.13)
 - [x] ROADMAP, CLAUDE.md, journal de bord
-- [ ] Dépôt GitHub créé et premier push
+- [x] Dépôt GitHub créé et premier push (github.com/Salchicho25/project-trajectory)
 - [ ] Jalons et premières issues créés sur GitHub
 
 ## Phase 1 — Physique plus fidèle (mois 1–2)
