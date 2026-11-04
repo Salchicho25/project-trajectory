@@ -78,7 +78,12 @@
             </select>
           </label>
           <label class="deck-loop"><input type="checkbox" id="t-loop" checked> Boucle</label>
+          <div class="deck-tools" role="group" aria-label="Capture">
+            <button type="button" id="b-photo">Photo</button>
+            <button type="button" id="b-video">Vidéo</button>
+          </div>
           <div class="cams" role="group" aria-label="Caméra">
+            <button type="button" id="c-cine" aria-pressed="false">Cinéma</button>
             <button type="button" id="c-suivi" aria-pressed="false">Suivi</button>
             <button type="button" id="c-tribune" aria-pressed="true">Tribune</button>
             <button type="button" id="c-aerien" aria-pressed="false">Aérien</button>
@@ -106,6 +111,7 @@
         <div class="export-actions">
           <button type="button" id="btn-fusion" class="primary">Script Fusion (.zip)</button>
           <button type="button" id="btn-csv">Données (.csv)</button>
+          <button type="button" id="btn-link">Copier le lien de ce tir</button>
         </div>
         <p id="export-status" class="export-status" role="status" aria-live="polite"></p>
       </section>

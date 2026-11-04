@@ -269,3 +269,15 @@ La vue 3D reste dans le monde « Centre Court » : aucun nouveau matériau, seul
 - **Commutateurs** (Relevé / Vue 3D, caméras) : groupe à liseré intérieur de 3 px, état pressé plein (`--rail` et or, ou or et `--rail` sur la barre).
 - **Caméras** : Suivi, Tribune (à droite du tireur, le tir va de gauche à droite), Aérien, Arrivée. Mouvement signature : transition d'une caméra à l'autre en 0,9 s, exponentielle, instantanée sous `prefers-reduced-motion`.
 - Le fichier `.impeccable/design.json` n'a pas été régénéré pour cette extension : ce paragraphe fait foi pour la 3D.
+
+### Décors 3D
+
+Chaque situation a un lieu, construit avec les seuls jetons existants (aucune couleur nouvelle en dehors de `--sky`).
+
+- **Football** : pelouse à bandes de 5,5 m, lignes de craie `--paper` aux cotes du règlement, mur de joueurs (maillot `--traj`, short `--paper`), but blanc avec filet translucide, tribunes sur trois côtés.
+- **Basket** : parquet dérivé de `--gold` assombri vers `--ink`, raquette en `--rail` éclairci vers `--green`, panneaux de bord de terrain en `--rail`, cercle `--gold` avec filet.
+- **Golf** : rough plus sombre (`--ink` mêlé), fairway de bandes de 10 m, bunkers `--paper` mêlé de `--gold`, fanions de distance `--traj`, arbres uniquement du côté opposé à la caméra de tribune.
+- **Baseball** : avant-champ en terre (`--gold` assombri), pelouse intérieure, bases `--paper`, piste d'avertissement, tribune derrière la palissade.
+- **Public** : cubes instanciés colorés avec `--paper`, `--gold`, `--traj`, `--traj-2`, `--green`, `--turf-b` : jamais de couleur hors palette.
+- **Lecture de la physique** : flèche d'axe de rotation en `--gold`, poussière aux contacts en `--paper` mêlé de `--gold`, vent en points `--paper`.
+- **Bandeaux** : la caméra « Cinéma » et les boutons Photo et Vidéo suivent les règles de la barre de lecture (fond `--rail`, or, liseré intérieur de 3 px).

@@ -297,3 +297,9 @@ def test_part_document_with_a_single_component_still_works(monkeypatch, parametr
         "Dessus",
         "Contacts",
     ]
+
+
+def test_api_reports_the_wind_so_the_3d_view_can_show_it():
+    calm = api.run_simulation({"scenario": "Libre"})
+    windy = api.run_simulation({"scenario": "Libre", "wind_x": 6, "wind_y": -3})
+    assert calm["wind"] == {"x": 0.0, "y": 0.0} and windy["wind"] == {"x": 6.0, "y": -3.0}

@@ -192,7 +192,7 @@ def test_every_file_the_page_depends_on_is_served(base_url):
     refs = set(re.findall(r'(?:src|href)="([^"#:]+)"', html)) - {"data,"}
     refs |= {v.removeprefix("./") for v in imports.values() if not v.endswith("/")}
     refs |= set(re.findall(r'url\("([^"]+)"\)', css))
-    for js in ("app.js", "plot.js", "scene3d.js"):
+    for js in ("app.js", "plot.js", "scene3d.js", "env3d.js"):
         text = _get(base_url + "/" + js)[2].decode()
         for spec in re.findall(r'(?:from|import\()\s*"([^"]+)"', text):
             if spec.startswith("."):

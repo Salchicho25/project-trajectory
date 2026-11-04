@@ -7,6 +7,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/OrbitControls.js";
+import { buildEnvironment, clouds, groundSpec, stripes } from "./env3d.js";
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const nf = (v, d = 0) => v.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -127,13 +128,14 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   const kitHex = () => Object.fromEntries(Object.entries(kit).map(([k, v]) => [k, hex(v)]));
 
   // ---------------------------------------------------------------- ciel, lumières
+  const SUN_DIR = new THREE.Vector3(-0.9, 1.7, 0.8).normalize();
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(1500, 24, 16),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: kit.sky.clone() }, bottom: { value: horizon.clone() } },
-      vertexShader: "varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-      fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying float h; void main(){ float t = smoothstep(0.0, 0.55, h); gl_FragColor = vec4(mix(bottom, top, t), 1.0);\n#include <colorspace_fragment>\n\n }",
+      uniforms: { top: { value: kit.sky.clone() }, bottom: { value: horizon.clone() }, sunDir: { value: SUN_DIR.clone() } },
+      vertexShader: "varying vec3 dir; void main(){ dir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+      fragmentShader: "uniform vec3 top; uniform vec3 bottom; uniform vec3 sunDir; varying vec3 dir; void main(){ float t = smoothstep(0.0, 0.55, dir.y); vec3 c = mix(bottom, top, t); float s = max(dot(normalize(dir), sunDir), 0.0); c += vec3(1.0, 0.96, 0.85) * (pow(s, 700.0) * 2.5 + pow(s, 18.0) * 0.22); gl_FragColor = vec4(c, 1.0);\n#include <colorspace_fragment>\n}",
     }),
   );
   scene.add(sky);
@@ -154,7 +156,10 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   let tt = [], px = [], py = [], pz = [], sp = [], om = [], qs = [];
   let trail = [], ghosts = null, marks = [], rings = [], impacts = [];
   let ballGroup = null, ballMesh = null, ballTex = null, ghostScale = 0;
+  let spinArrow = null, puffs = [], windPts = null, envUpdate = () => {};
+  const windVec = new THREE.Vector3(), windBox = { x0: -20, x1: 100, zh: 30 };
   let t = 0, hold = 0, playing = !reduce.matches, speed = 1, loop = true, active = false;
+  let curT = 0, recorder = null, recChunks = [], savedLoop = true;
   let mode = "tribune", raf = 0, last = 0, hudAcc = 0;
   const heading = new THREE.Vector3(1, 0, 0);
   const lookAt = new THREE.Vector3();
@@ -178,22 +183,6 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   }
 
   // ---------------------------------------------------------------- décor statique
-  function stripeTexture(band, length) {
-    const cv = document.createElement("canvas");
-    cv.width = 256; cv.height = 8;
-    const g = cv.getContext("2d");
-    const [light, dark] = lawn();
-    g.fillStyle = hex(light); g.fillRect(0, 0, 128, 8);
-    g.fillStyle = hex(dark); g.fillRect(128, 0, 128, 8);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.repeat.set(length / (2 * band), 1);
-    tex.anisotropy = 8;
-    tex.magFilter = THREE.NearestFilter;
-    return tex;
-  }
-
   function disposeGroup(g) {
     g.traverse((o) => {
       o.geometry?.dispose?.();
@@ -205,10 +194,11 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
   const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0, ...extra });
 
-  function buildScenery(geom) {
+  function buildScenery(geom, skip = new Set()) {
     const g = new THREE.Group();
     const bandAt = (x) => geom.top.find((b) => b.kind === "band" && Math.abs(b.x - x) < 0.8);
     for (const sh of geom.side) {
+      if (sh.label && skip.has(sh.label)) continue;      // déjà dessiné par le décor de la situation
       if (sh.kind === "rect") {
         const b = bandAt(sh.x + sh.w / 2) ?? bandAt(sh.x);
         const y0 = b ? b.y0 : -3, y1 = b ? b.y1 : 3;
@@ -241,6 +231,12 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
       } else if (sh.kind === "hoop") {
         const ring = new THREE.Mesh(new THREE.TorusGeometry(sh.r, 0.013, 12, 48), std(kit.gold, { metalness: 0.6, roughness: 0.3 }));
         ring.rotation.x = Math.PI / 2; ring.position.copy(P(sh.x, 0, sh.z)); ring.castShadow = true; g.add(ring);
+        const net = [], N = 14;                          // filet : 14 brins qui se resserrent sous le cercle
+        for (let i = 0; i < N; i++) {
+          const a = (i / N) * Math.PI * 2;
+          net.push(P(sh.x + Math.cos(a) * sh.r, Math.sin(a) * sh.r, sh.z), P(sh.x + Math.cos(a) * sh.r * 0.55, Math.sin(a) * sh.r * 0.55, sh.z - 0.42));
+        }
+        g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(net), new THREE.LineBasicMaterial({ color: kit.paper, transparent: true, opacity: 0.8 })));
       }
     }
     return g;
@@ -248,22 +244,28 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
 
   function buildWorld(d) {
     disposeGroup(world);
-    const geom = d.geometry;
-    const length = Math.max(90, xmax * 1.5 + 80), width = Math.max(70, 2 * (ymaxAbs() + 45));
-    const band = length > 260 ? 10 : length > 140 ? 5 : 2.5;
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(length, width), new THREE.MeshStandardMaterial({ map: stripeTexture(band, length), roughness: 1 }));
+    const [light, dark] = lawn();
+    const spec = groundSpec(d.scenario, kit, { light, dark, xmax, ext });
+    const length = spec.length ?? Math.max(90, xmax * 1.5 + 80);
+    const width = spec.width ?? Math.max(70, 2 * (ymaxAbs() + 45));
+    const band = spec.band ?? (length > 260 ? 10 : length > 140 ? 5 : 2.5);
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(length, width),
+      new THREE.MeshStandardMaterial({ map: stripes(spec.light, spec.dark, band, length), roughness: 1 }),
+    );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(length / 2 - 40, 0, 0);
+    ground.position.set(spec.x0 ?? length / 2 - 40, 0, 0);
     ground.receiveShadow = true;
     world.add(ground);
-    // lignes de craie : départ, puis repères de distance
-    const chalk = std(kit.paper, { roughness: 0.6, emissive: kit.paper, emissiveIntensity: 0.12 });
-    const lines = [0, ...geom.marks.map((m) => m.x)];
-    for (const x of lines) {
-      const line = new THREE.Mesh(new THREE.PlaneGeometry(0.12, Math.min(width, 40)), chalk);
-      line.rotation.x = -Math.PI / 2; line.position.set(x, 0.012, 0); line.receiveShadow = true; world.add(line);
-    }
-    world.add(buildScenery(geom));
+    const far = new THREE.Mesh(new THREE.CircleGeometry(3500, 48), new THREE.MeshStandardMaterial({ color: dark, roughness: 1 }));
+    far.rotation.x = -Math.PI / 2; far.position.y = -0.04;           // terre au-delà du terrain, fondue dans le brouillard
+    world.add(far);
+    const env = buildEnvironment(d.scenario, d.geometry, kit, { xmax, ext, light, dark });
+    world.add(env.group);
+    world.add(buildScenery(d.geometry, env.handles));
+    const cloudsFx = clouds(kit, xmax * 0.5);
+    world.add(cloudsFx.group);
+    envUpdate = (dt) => { env.update(dt); cloudsFx.update(dt); };
     scene.fog = new THREE.Fog(horizon, ext * 1.6 + 60, ext * 6 + 500);
   }
   const ymaxAbs = () => py.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
@@ -370,6 +372,51 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
       rings.push({ ring, t: im.t });
     }
 
+    // axe de rotation de la balle (flèche or) : d'où vient l'effet Magnus
+    spinArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 1, kit.gold, 0.3, 0.18);
+    spinArrow.visible = false;
+    dyn.add(spinArrow);
+
+    // poussière aux contacts avec le sol
+    puffs = impacts.map((im) => {
+      const n = 26;
+      let a = Math.round(im.x * 100) + 7;
+      const rand = () => (a = (a * 1664525 + 1013904223) >>> 0) / 4294967296;
+      const dirs = Array.from({ length: n }, () => {
+        const th = rand() * Math.PI * 2, up = 0.25 + rand() * 0.75;
+        return new THREE.Vector3(Math.cos(th) * (1 - up * 0.5), up, Math.sin(th) * (1 - up * 0.5)).multiplyScalar(0.6 + rand() * 1.4);
+      });
+      const geo = new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+      const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+        color: kit.paper.clone().lerp(kit.gold, 0.3), size: vrMin * 1.7, transparent: true, opacity: 0, depthWrite: false,
+      }));
+      pts.frustumCulled = false;
+      pts.position.copy(P(im.x, im.y, 0));
+      pts.visible = false;
+      dyn.add(pts);
+      return { pts, dirs, t: im.t, n };
+    });
+
+    // vent : particules qui dérivent dans le sens du vent (seulement s'il y en a)
+    const wind = d.wind ?? { x: 0, y: 0 };
+    windVec.set(wind.x, 0, -wind.y);
+    windPts = null;
+    if (windVec.length() > 0.3) {
+      const n = 240, arr = new Float32Array(n * 3);
+      Object.assign(windBox, { x0: -20, x1: xmax + 60, zh: Math.max(25, ymaxAbs() + 25) });
+      for (let i = 0; i < n; i++) {
+        arr[i * 3] = windBox.x0 + Math.random() * (windBox.x1 - windBox.x0);
+        arr[i * 3 + 1] = 0.3 + Math.random() * Math.max(zmax * 1.4, 8);
+        arr[i * 3 + 2] = (Math.random() * 2 - 1) * windBox.zh;
+      }
+      windPts = new THREE.Points(
+        new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(arr, 3)),
+        new THREE.PointsMaterial({ color: kit.paper, size: Math.max(0.14, ext * 0.004), transparent: true, opacity: 0.6, depthWrite: false }),
+      );
+      windPts.frustumCulled = false;
+      dyn.add(windPts);
+    }
+
     // orientation de la balle à chaque échantillon (intégration de la rotation calculée par Python)
     qs = [new THREE.Quaternion()];
     const q = new THREE.Quaternion(), axis = new THREE.Vector3();
@@ -403,8 +450,10 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   function setCamera(name, instant = false) {
     mode = name;
     onMode(name);
-    if (name === "suivi") {
+    if (name === "suivi" || name === "cine") {
       controls.enabled = false;
+      camera.fov = name === "cine" ? 46 : 40;
+      camera.updateProjectionMatrix();
       return;
     }
     controls.enabled = true;
@@ -420,11 +469,38 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
   }
   controls.addEventListener("start", () => {
     tween = null;
-    if (mode === "suivi") { mode = "libre"; controls.enabled = true; onMode("libre"); }
+    if (mode === "suivi" || mode === "cine") { mode = "libre"; controls.enabled = true; onMode("libre"); }
     else if (mode !== "libre") { mode = "libre"; onMode("libre"); }
   });
 
   function updateCamera(dt, ballPos) {
+    if (mode === "cine") {
+      const u = T > 0 ? curT / T : 0;
+      const hv = Math.hypot(tmp.vel.x, tmp.vel.z);
+      if (hv > 0.5) heading.set(tmp.vel.x / hv, 0, tmp.vel.z / hv);
+      const d = Math.max(4.5, vrMin * 24);
+      let want, look, rate;
+      if (u < 0.28) {                          // plan 1 : derrière la balle
+        want = ballPos.clone().addScaledVector(heading, -d).setY(ballPos.y + d * 0.28 + vrMin);
+        look = ballPos.clone().addScaledVector(heading, d * 0.7);
+        rate = 4.5;
+      } else if (u < 0.74) {                   // plan 2 : travelling de côté
+        const side = Math.max(7, ext * 0.28);
+        want = new THREE.Vector3(ballPos.x + ext * 0.05, ballPos.y + ext * 0.04 + 1.4, ballPos.z + side);
+        look = ballPos.clone().addScaledVector(heading, side * 0.25);
+        rate = 2.4;
+      } else {                                 // plan 3 : face à l'arrivée
+        want = new THREE.Vector3(xend + Math.max(5, ext * 0.12), 1.7 + zmax * 0.05, -(py[py.length - 1] || 0) + Math.max(2, ext * 0.03));
+        look = ballPos.clone();
+        rate = 2.0;
+      }
+      const k = reduce.matches || curT < 0.03 ? 1 : 1 - Math.exp(-dt * rate);
+      camera.position.lerp(want, k);
+      lookAt.lerp(look, k);
+      camera.position.y = Math.max(camera.position.y, 0.6);
+      camera.lookAt(lookAt);
+      return;
+    }
     if (mode === "suivi") {
       const hv = Math.hypot(tmp.vel.x, tmp.vel.z);
       if (hv > 0.5) heading.set(tmp.vel.x / hv, 0, tmp.vel.z / hv);
@@ -455,6 +531,29 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     setGhostScale(bs * 0.5);
     ballGroup.position.copy(p);
     ballMesh.quaternion.copy(qs[s.i]).slerp(qs[Math.min(s.i + 1, qs.length - 1)], s.f);
+    {
+      const a = om[s.i], b = om[Math.min(s.i + 1, om.length - 1)];
+      const ox = a.x + (b.x - a.x) * s.f, oy = a.y + (b.y - a.y) * s.f, oz = a.z + (b.z - a.z) * s.f;
+      const mag = Math.hypot(ox, oy, oz);
+      spinArrow.visible = mag > 5;
+      if (spinArrow.visible) {
+        spinArrow.position.copy(p);
+        spinArrow.setDirection(new THREE.Vector3(ox / mag, oz / mag, -oy / mag));
+        spinArrow.setLength(bs * 3.4, bs * 1.0, bs * 0.6);
+      }
+    }
+    for (const pf of puffs) {
+      const age = time - pf.t;
+      pf.pts.visible = age >= 0 && age < 2.8;
+      if (pf.pts.visible) {
+        const pos = pf.pts.geometry.attributes.position, k = (1 - Math.exp(-age * 2.6)) / 2.6;
+        for (let i = 0; i < pf.n; i++) {
+          pos.setXYZ(i, pf.dirs[i].x * k * 3, Math.max(0.03, vrMin * 0.6 + pf.dirs[i].y * k * 3 - 0.08 * age * age), pf.dirs[i].z * k * 3);
+        }
+        pos.needsUpdate = true;
+        pf.pts.material.opacity = 0.75 * Math.exp(-age * 1.5);
+      }
+    }
     for (const tr of trail) {
       const ta = tr.times[0], tb = tr.times[tr.times.length - 1];
       let frac = 0;
@@ -503,6 +602,38 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     hud.kmh.textContent = `${nf(s.speed * 3.6, 0)} km/h`;
   }
 
+  function updateWind(dt) {
+    if (!windPts) return;
+    const pos = windPts.geometry.attributes.position, b = windBox, span = b.x1 - b.x0;
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i) + windVec.x * dt, z = pos.getZ(i) + windVec.z * dt;
+      if (x > b.x1) x -= span; else if (x < b.x0) x += span;
+      if (z > b.zh) z -= 2 * b.zh; else if (z < -b.zh) z += 2 * b.zh;
+      pos.setXYZ(i, x, pos.getY(i), z);
+    }
+    pos.needsUpdate = true;
+  }
+
+  // photo : on dessine puis on lit le canvas dans la même tâche (sans quoi WebGL l'a déjà vidé)
+  function snapshot() {
+    return new Promise((resolve) => { renderer.render(scene, camera); canvas.toBlob(resolve, "image/png"); });
+  }
+
+  // vidéo : un tir complet, une seule fois, enregistré depuis le canvas (sans les bandeaux de la page)
+  function record(onDone) {
+    if (recorder) return false;
+    if (!canvas.captureStream || !window.MediaRecorder) { onDone(null, "Enregistrement vidéo non pris en charge par ce navigateur."); return false; }
+    const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m));
+    recorder = new MediaRecorder(canvas.captureStream(60), { mimeType: mime, videoBitsPerSecond: 9_000_000 });
+    recChunks = [];
+    recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+    recorder.onstop = () => { const blob = new Blob(recChunks, { type: "video/webm" }); recorder = null; loop = savedLoop; onDone(blob); };
+    savedLoop = loop; loop = false;
+    t = 0; heading.set(1, 0, 0); playing = true;
+    recorder.start(200);
+    return true;
+  }
+
   // ---------------------------------------------------------------- boucle
   function resize() {
     const r = canvas.getBoundingClientRect();
@@ -518,12 +649,17 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     last = now;
     if (!data) return;
     if (playing) {
-      t += dt * speed;
+      let k = speed;
+      if (mode === "cine") for (const im of impacts) if (Math.abs(t - im.t) < 0.3) { k *= 0.3; break; }   // ralenti aux contacts
+      t += dt * k;
       if (t > T + HOLD) {
-        if (loop) { t = 0; heading.set(1, 0, 0); } else { t = T; playing = false; }
+        if (loop) { t = 0; heading.set(1, 0, 0); } else { t = T; playing = false; if (recorder) recorder.stop(); }
       }
     }
     const tBall = Math.min(t, T);
+    curT = tBall;
+    envUpdate(dt);
+    updateWind(dt);
     const { p } = place(tBall);
     updateCamera(dt, p);
     renderer.render(scene, camera);
@@ -574,6 +710,7 @@ export function createScene3D(canvas, hud, { onFrame = () => {}, onMode = () => 
     seek(time) { t = Math.min(Math.max(time, 0), T); playing = false; if (data) { place(t); writeHud(t); } },
     replay() { t = 0; heading.set(1, 0, 0); playing = !reduce.matches; if (data) place(0); },
     setSpeed(v) { speed = v; },
+    snapshot, record,
     setLoop(v) { loop = v; },
     get duration() { return T; },
     get playing() { return playing; },

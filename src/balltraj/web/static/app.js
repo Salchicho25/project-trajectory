@@ -180,6 +180,7 @@ async function refresh(animate) {
 function apply(data) {
   const restart = animateNext;
   state.data = data;
+  writeHash();
   renderText(data);
   if (view === "3d") push3d(restart);
   if (animateNext && !reduceMotion.matches) { animateNext = false; animate(); }
@@ -303,7 +304,7 @@ function wireButtons() {
 
 // ---------------------------------------------------------------- vue 3D
 let view = "2d", scene3d = null, replayTimer = 0, scrubbing = false;
-const CAMERAS = ["suivi", "tribune", "aerien", "arrivee"];
+const CAMERAS = ["cine", "suivi", "tribune", "aerien", "arrivee"];
 
 async function ensure3D() {
   if (scene3d) return scene3d;
@@ -334,7 +335,10 @@ async function ensure3D() {
 }
 
 async function setView(next) {
-  if (next === "3d") await ensure3D();
+  if (next === "3d") {
+    await ensure3D();
+    if (scene3d && pendingCamera) { scene3d.setCamera(pendingCamera, true); pendingCamera = null; }
+  }
   view = next;
   $("sheet").dataset.view = view;
   $("v-2d").setAttribute("aria-pressed", String(view === "2d"));
@@ -357,7 +361,32 @@ function push3d(restart) {
   }
 }
 
+function saveBlob(blob, name) {
+  const link = el("a", { href: URL.createObjectURL(blob), download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+}
+
 function wire3d() {
+  $("b-photo").addEventListener("click", async () => {
+    const blob = await scene3d?.snapshot();
+    if (blob) saveBlob(blob, "Trajectoire_3D.png");
+  });
+  $("b-video").addEventListener("click", () => {
+    const b = $("b-video");
+    if (!scene3d) return;
+    b.disabled = true;
+    b.textContent = "Enregistrement…";
+    const started = scene3d.record((blob, err) => {
+      b.disabled = false;
+      b.textContent = "Vidéo";
+      if (blob) saveBlob(blob, "Trajectoire_3D.webm");
+      else $("export-status").textContent = err ?? "Enregistrement impossible.";
+    });
+    if (!started) { b.disabled = false; b.textContent = "Vidéo"; }
+  });
   $("v-2d").addEventListener("click", () => setView("2d"));
   $("v-3d").addEventListener("click", () => setView("3d"));
   $("b-play").addEventListener("click", () => scene3d?.toggle());
@@ -367,6 +396,33 @@ function wire3d() {
   $("s-speed").addEventListener("change", (e) => scene3d?.setSpeed(Number(e.target.value)));
   $("t-loop").addEventListener("change", (e) => scene3d?.setLoop(e.target.checked));
   for (const n of CAMERAS) $(`c-${n}`).addEventListener("click", () => scene3d?.setCamera(n));
+}
+
+// ---------------------------------------------------------------- lien de partage
+const VALUE_KEYS = () => new Set([...state.meta.controls.map((c) => c.key), "surface", "roll"]);
+let pendingCamera = null;
+
+function shareState() {
+  return { s: state.scenario.name, b: state.ball, v: state.values, w: view, c: scene3d?.mode ?? pendingCamera };
+}
+function writeHash() {
+  try { history.replaceState(null, "", `#${btoa(unescape(encodeURIComponent(JSON.stringify(shareState()))))}`); } catch { /* sans conséquence */ }
+}
+function readHash() {
+  try { return JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1))))); } catch { return null; }
+}
+function applySaved(saved) {
+  const keys = VALUE_KEYS();
+  for (const [k, v] of Object.entries(saved.v ?? {})) {
+    if (!keys.has(k)) continue;
+    if (k === "surface") { if (state.meta.surfaces.some((s) => s.key === v)) state.values.surface = v; }
+    else if (k === "roll") state.values.roll = Boolean(v);
+    else if (Number.isFinite(Number(v))) state.values[k] = Number(v);
+  }
+  if (saved.b && state.meta.balls.some((b) => b.key === saved.b)) { state.ball = saved.b; $("ball").value = saved.b; }
+  pendingCamera = CAMERAS.includes(saved.c) ? saved.c : null;
+  paintAll();
+  refresh(true);
 }
 
 // ---------------------------------------------------------------- export vers Fusion
@@ -407,12 +463,23 @@ async function start() {
   wire3d();
   $("btn-fusion").addEventListener("click", () => download("fusion"));
   $("btn-csv").addEventListener("click", () => download("csv"));
+  $("btn-link").addEventListener("click", async () => {
+    writeHash();
+    try {
+      await navigator.clipboard.writeText(location.href);
+      $("export-status").textContent = "Lien copié. Il rouvre ce tir exact, tant que l'interface tourne sur ce PC.";
+    } catch {
+      $("export-status").textContent = "Copie impossible : copie l'adresse du navigateur, elle contient déjà le tir.";
+    }
+  });
   const ro = new ResizeObserver(() => draw());
   for (const id of ["cv-side", "cv-top", "cv-chart"]) ro.observe($(id));
   document.fonts.ready.then(draw);
-  selectScenario("Coup franc");
-  let saved = "2d";
-  try { saved = localStorage.getItem("trajectoire-vue") || "2d"; } catch { /* sans conséquence */ }
+  const shared = readHash();
+  selectScenario(shared && state.meta.scenarios.some((s) => s.name === shared.s) ? shared.s : "Coup franc");
+  if (shared?.v) applySaved(shared);
+  let saved = shared?.w ?? "2d";
+  if (!shared?.w) { try { saved = localStorage.getItem("trajectoire-vue") || "2d"; } catch { /* sans conséquence */ } }
   if (saved === "3d") setView("3d");
 }
 start();

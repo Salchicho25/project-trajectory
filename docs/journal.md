@@ -5,6 +5,15 @@ Le plus récent en haut.
 
 ---
 
+## 2026-11-04 — 3D premium : décors, atmosphère, caméra Cinéma, photo, vidéo, partage
+- `env3d.js` : un décor aux cotes réglementaires par situation (foot, basket, golf, baseball), tribunes avec public instancié, forêt, nuages. Les arbres du golf sont du côté opposé à la caméra : placés des deux côtés, ils masquaient le fairway.
+- Atmosphère : disque solaire dans le shader du ciel, direction identique à celle de la lumière qui projette les ombres.
+- La physique devient visible : flèche d'axe de rotation, poussière aux contacts, particules de vent (l'API renvoie maintenant `wind`).
+- Caméra Cinéma : trois plans enchaînés selon l'avancement du tir, ralenti (×0,3) à moins de 0,3 s d'un rebond.
+- Photo et vidéo : `toBlob` appelé juste après le rendu (sinon WebGL a déjà vidé le canvas) ; `MediaRecorder` sur `captureStream`, un tir complet une seule fois.
+- Lien de partage : l'état du tir est dans l'adresse (base64 d'un JSON), validé à la relecture.
+- Bug trouvé à 375 px : la barre de 5 caméras élargissait la page à 402 px (colonne de grille en `auto`). Corrigé par `minmax(0, 1fr)` et des boutons qui rétrécissent.
+
 ## 2026-11-04 — Rebonds, vue 3D immersive, export Fusion
 - **Rebonds** (`impact.py`) : sphère rigide, restitution + frottement de Coulomb + transfert de rotation, par balle et par sol. Tennis calé sur la norme ITF (rebond 1,41 m pour 2,54 m). Golf : drive de 70 m/s → carry 222 m, roulé 70,7 m, total 317 m sur gazon.
 - Tests de mon propre modèle : deux tests faux au départ (cas qui n'accrochait pas, cas où le frottement saturait). C'était les tests, pas la physique.

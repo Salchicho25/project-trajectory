@@ -34,6 +34,7 @@ src/balltraj/
   web/server.py   serveur stdlib sur 127.0.0.1 + fichiers statiques + téléchargements — commande `trajectoire-web`
   web/export.py   export CSV et dossier zippé Autodesk Fusion (script .py + .manifest)
   web/static/     index.html, style.css, app.js (logique), plot.js (relevé 2D), scene3d.js (vue 3D three.js),
+                  env3d.js (décors par situation, tribunes, arbres, nuages),
                   fonts/, vendor/ (three.js r160 + OrbitControls, MIT, embarqués pour fonctionner hors ligne)
   etude.py        graphiques d'étude — commande `trajectoire-etude`
 tests/            test_physics.py (validation physique), test_scenarios.py (situations + UI matplotlib),

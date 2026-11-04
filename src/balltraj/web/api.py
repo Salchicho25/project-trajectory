@@ -220,6 +220,7 @@ def run_simulation(payload: dict) -> dict[str, Any]:
     return {
         "scenario": name,
         "ball": {"key": ball.key, "name": ball.name, "mass": ball.mass, "diameter": ball.diameter},
+        "wind": {"x": env.wind[0], "y": env.wind[1]},
         "air": {
             "density": round(env.density, 4),
             "viscosity": env.kinematic_viscosity,

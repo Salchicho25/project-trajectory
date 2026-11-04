@@ -44,7 +44,10 @@ Une page unique servie en local (bibliothèque standard Python, rien n'est expos
 Le bouton **Vue 3D** rejoue le tir en temps réel (three.js, embarqué en local, fonctionne hors ligne) :
 - pelouse rayée avec ombres, ballon texturé qui **tourne vraiment** (la rotation vient de Python), tube violet tracé pendant le vol, balles fantômes à chaque intervalle de temps, anneaux aux points de contact ;
 - **tableau d'affichage** en direct (temps, distance, hauteur, vitesse) et **barre de lecture** : lecture/pause, curseur de temps, vitesse de 0,1× à 2× (1× = temps réel), boucle ;
-- **4 caméras** : Suivi (derrière la balle), Tribune (vue de côté), Aérien, Arrivée (depuis le but). Une rotation à la souris donne la main à la caméra libre.
+- **5 caméras** : **Cinéma** (réalisation automatique : derrière la balle, travelling de côté, face à l'arrivée, **ralenti aux rebonds**), Suivi, Tribune, Aérien, Arrivée. Une rotation à la souris donne la main à la caméra libre.
+- **Un vrai décor par situation** : terrain de foot (surface de réparation tracée, but avec filet, **mur de joueurs**, tribunes avec public), parquet de basket (raquette, ligne à 3 points, filet), fairway de golf (rough, bunkers, fanions de distance, arbres), terrain de baseball (avant-champ en terre, bases, piste d'avertissement, tribunes). Soleil, nuages qui dérivent, forêt à l'horizon.
+- **Lecture de la physique dans la scène** : flèche or = axe de rotation de la balle (d'où vient l'effet Magnus), poussière et anneau à chaque contact avec le sol, particules de **vent** quand il y en a.
+- **Photo (PNG) et vidéo (WebM)** du tir en un clic. **Lien de partage** : l'adresse contient le tir (situation, réglages, vue, caméra) et le rouvre à l'identique.
 
 ### Rebonds et sol
 
