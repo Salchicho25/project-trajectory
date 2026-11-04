@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "balltraj"
+version = "0.1.0"
+description = "Simulation de trajectoires de balles de sport : traînée, effet Magnus, spin"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Nolan Beyou" }]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+trajectoire = "balltraj.app:main"           # simulateur interactif
+trajectoire-etude = "balltraj.etude:main"   # génère les graphiques d'étude
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Tests -----------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# Les tests marqués « slow » sont sautés par défaut. Tout lancer : pytest -m ""
+addopts = "-q --strict-markers -m 'not slow'"
+markers = ["slow: tests longs (interface, balayages) — lancés par la CI"]
+
+[tool.coverage.run]
+source = ["balltraj"]
+omit = ["*/app.py", "*/etude.py"]   # interface et scripts : vérifiés à la main / par rendu
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# --- Style et lint -----------------------------------------------------------
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "NPY", "RUF"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",   # caractères Unicode (°, ρ, ω, –) voulus dans les textes français
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B018"]
+
+# --- Typage -------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
